@@ -48,9 +48,11 @@ mainTabUI <- function() {
                
              )
     ),
+    
     tabPanel("Pairwise Comparison",
              PairwiseComparisonTabUI("pariwise_comparison")
     ),
+    
     tabPanel("Clustering",
              clusteringTabUI("clustering")
     )
