@@ -6,7 +6,6 @@
 #
 #    https://shiny.posit.co/
 #
-
 library(shiny)
 
 # Define server logic required to draw a histogram
@@ -24,5 +23,18 @@ function(input, output, session) {
              main = 'Histogram of waiting times')
 
     })
-
+  
+    
+    output$summary <- renderPrint({
+      dataset <- get(input$dataset, "package:datasets")
+      summary(dataset)
+    })
+    
+    output$table <- renderTable({
+      dataset <- get(input$dataset, "package:datasets")
+      dataset
+    })
+    
+    clusteringTabServer("clustering")
+    PairwiseComparisonTabServer("pariwise_comparison")
 }

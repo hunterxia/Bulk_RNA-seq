@@ -30,7 +30,10 @@ mainTabUI <- function() {
                fluidRow(
                  column(3, numericInput("cutoff_expression", "Cutoff Expression", value = 0)),
                  column(3, numericInput("samples_cutoff", "Samples Cutoff", value = 0))
-               )
+               ),
+               selectInput("dataset", label = "Dataset", choices = ls("package:datasets")),
+               verbatimTextOutput("summary"),
+               tableOutput("table")
              )
     ),
     
@@ -44,6 +47,14 @@ mainTabUI <- function() {
              fluidPage(
                
              )
+    ),
+    
+    tabPanel("Pairwise Comparison",
+             PairwiseComparisonTabUI("pariwise_comparison")
+    ),
+    
+    tabPanel("Clustering",
+             clusteringTabUI("clustering")
     )
    
   )
