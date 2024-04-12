@@ -10,47 +10,27 @@
 # ui.R
 
 library(shiny)
-library(DT) 
-# Define UI for main tab
-mainTabUI <- function() {
+source("R/main.R")  
+
+ui <- fluidPage(
+  titlePanel("RNA-seq Data Visualization App"),
   tabsetPanel(
-    tabPanel("Main", 
+    tabPanel("MainTab",
+    mainTabUI("mainTabModule")),
+    tabPanel("QC Tab",
              fluidPage(
-               titlePanel("Bulk RNA-seq"),
                
-               dataTableOutput("expression_table"),
-               
-               dataTableOutput("groups_table"),
-               
-               shiny::checkboxInput("toggle_groups", "Toggle Groups On/Off", value = FALSE),
-              
-               uiOutput("sample_checkboxes"),
-              
-               fluidRow(
-                 column(3, numericInput("cutoff_expression", "Cutoff Expression", value = 0)),
-                 column(3, numericInput("samples_cutoff", "Samples Cutoff", value = 0))
-               ),
-               selectInput("dataset", label = "Dataset", choices = ls("package:datasets")),
-               verbatimTextOutput("summary"),
-               tableOutput("table")
              )
     ),
     
-    tabPanel("QC Tab",
-             qcTabUI("qc")
-    ),
-    
     tabPanel("PCA and Correlation",
-             PCACorrelationTabUI("pca_correlation")
-    ),
-    
+             fluidPage(
+             )),
     tabPanel("Pairwise Comparison",
-             PairwiseComparisonTabUI("pariwise_comparison")
-    ),
-    
+             PairwiseComparisonTabUI("pairwise_comparison")),
     tabPanel("Clustering",
-             clusteringTabUI("clustering")
-    )
-   
+             clusteringTabUI("clustering"))
   )
-}
+)
+
+
