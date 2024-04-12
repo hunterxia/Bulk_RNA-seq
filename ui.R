@@ -11,7 +11,6 @@
 
 library(shiny)
 library(DT) 
-
 # Define UI for main tab
 mainTabUI <- function() {
   tabsetPanel(
@@ -38,15 +37,11 @@ mainTabUI <- function() {
     ),
     
     tabPanel("QC Tab",
-             fluidPage(
-               
-             )
+             qcTabUI("qc")
     ),
     
     tabPanel("PCA and Correlation",
-             fluidPage(
-               
-             )
+             PCACorrelationTabUI("pca_correlation")
     ),
     
     tabPanel("Pairwise Comparison",

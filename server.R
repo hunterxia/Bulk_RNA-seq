@@ -7,8 +7,8 @@
 #    https://shiny.posit.co/
 #
 library(shiny)
-
 # Define server logic required to draw a histogram
+
 function(input, output, session) {
 
     output$distPlot <- renderPlot({
@@ -34,7 +34,8 @@ function(input, output, session) {
       dataset <- get(input$dataset, "package:datasets")
       dataset
     })
-    
+    qcTabServer("qc")
+    PCACorrelationTabServer("pca_correlation")
     clusteringTabServer("clustering")
     PairwiseComparisonTabServer("pariwise_comparison")
 }
