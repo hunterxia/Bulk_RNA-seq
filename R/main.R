@@ -89,8 +89,15 @@ mainTabServer <- function(id) {
       
       # Render the filtered data table
       output$resultsTable <- renderDT({
-        filtered_data()
+        groups_data()
       }, options = list(pageLength = 25))
+      
+      # return a list of data for other modules to access
+      return(list(
+        expression_data = expression_data,
+        groups_data = groups_data,
+        filtered_data = filtered_data
+      ))
     })
   }
   

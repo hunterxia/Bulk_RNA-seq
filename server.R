@@ -11,9 +11,9 @@ source("R/main.R")
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
-  
-  mainTabServer("mainTabModule")
-  
+  dataset <- mainTabServer("mainTabModule")
+  qcTabServer("qc", dataset)
+  PCACorrelationTabServer("pca_correlation")
   clusteringTabServer("clustering")
   PairwiseComparisonTabServer("pariwise_comparison")
 }

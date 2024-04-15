@@ -18,14 +18,9 @@ ui <- fluidPage(
     tabPanel("MainTab",
     mainTabUI("mainTabModule")),
     tabPanel("QC Tab",
-             fluidPage(
-               
-             )
-    ),
-    
+             qcTabUI("qc")),
     tabPanel("PCA and Correlation",
-             fluidPage(
-             )),
+             PCACorrelationTabUI("pca_correlation")),
     tabPanel("Pairwise Comparison",
              PairwiseComparisonTabUI("pairwise_comparison")),
     tabPanel("Clustering",

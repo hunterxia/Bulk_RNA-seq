@@ -1,4 +1,4 @@
-qcTabServer <- function(id) {
+qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     data <- reactive({
       req(input$expressions)
@@ -68,14 +68,37 @@ qcTabServer <- function(id) {
     })
     
     output$hist <- renderPlot({
-      #browser()
-      df <- data()
+      df <- dataset$expression_data()
       df_log_normalized <- log1p(df[3:ncol(df)])
-      df_vector <- unlist(df_log_normalized)
-      #browser()
-      bins <- seq(from = min(df_vector), to = max(df_vector), length.out = max(df_vector) / input$bin_size)
-      hist(df_vector, breaks = bins, xlab = paste("Bins(binsize=", input$bin_size, ")"), ylab = "Gene Counts", main = "")
-      #ggplot(data()[,2], mapping = aes(x = "a01 brain microglia1 Exp1 m", y = "a01 brain microglia1 Exp1 m"))
+      df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
+      bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
+      bins_pt5 <- as.data.frame(bins_pt5)
+      bins_pt5 %>%
+        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
+        geom_line() +
+        scale_color_viridis(discrete = TRUE) +
+        ggtitle("Popularity of American names in the previous 30 years") +
+        theme_ipsum() + 
+        labs(
+          x = paste0("Bins(binsize=", input$bin_size, ")"),  # X轴名称
+          y = "Gene Counts",          # Y轴名称
+          title = "Histogram of Gene Expression"
+        ) +
+        guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
+        theme(
+          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+          axis.title.x = element_text(vjust = 0.5, hjust = 0.5),  # X轴标题垂直居中
+          axis.title.y = element_text(hjust = 0.5),  # Y轴标题水平居中
+          panel.border = element_rect(colour = "black", fill = NA, size = 1),  # 给图表加上边框
+          legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),  # 给图例加上边框
+          legend.title = element_blank(),
+          legend.position = c(1, 1),  # 将图例放在图表内部，位置根据需要调整
+          legend.justification = c("right", "top"),  # 图例的对齐方式
+          legend.box.just = "right",  # 图例框架的对齐方式
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),  # 减少图例周围的边距
+          legend.key.size = unit(0.5, "cm")  # 设置图例键的大小
+        )
+      
     }, res = 96)
     
     output$grouped_hist <- renderPlot({
@@ -90,10 +113,10 @@ qcTabServer <- function(id) {
       #ggplot(data()[,2], mapping = aes(x = "a01 brain microglia1 Exp1 m", y = "a01 brain microglia1 Exp1 m"))
     }, res = 96)
     
-    observeEvent(data(), {
-      x <- log2(data()$`b05 Neutrophil1 Exp2` + 1)
-      updateSliderInput(inputId = "bin_size", min = min(x), max = max(x) %/% 2)
-    })  
+#    observeEvent(data(), {
+#      x <- log2(data()$`b05 Neutrophil1 Exp2` + 1)
+#      updateSliderInput(inputId = "bin_size", min = min(x), max = max(x) %/% 2)
+#    })  
   })
 }
 
@@ -110,11 +133,10 @@ qcTabUI <- function(id) {
     ),
     fluidRow(
       column(6, 
-        sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 3, value = 1, step = 0.01),
+        sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
         plotOutput(NS(id, "hist"))
       ),
       column(6, 
-        sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 3, value = 1, step = 0.01),
         plotOutput(NS(id, "grouped_hist"))
       )
     )
