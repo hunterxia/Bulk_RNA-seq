@@ -82,7 +82,7 @@ qcTabServer <- function(id, dataset) {
         labs(
           x = paste0("Bins(binsize=", input$bin_size, ")"),  # X轴名称
           y = "Gene Counts",          # Y轴名称
-          title = "Histogram of Gene Expression"
+          title = "Histogram before filtering"
         ) +
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
@@ -116,7 +116,7 @@ qcTabServer <- function(id, dataset) {
         labs(
           x = paste0("Bins(binsize=", input$bin_size, ")"),  # X轴名称
           y = "Gene Counts",          # Y轴名称
-          title = "Histogram of Gene Expression"
+          title = "Histogram after filtering"
         ) +
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
@@ -147,20 +147,16 @@ qcTabUI <- function(id) {
   fluidPage(
     titlePanel("QC"),
     fluidRow(
-      column(6, 
-        fileInput(NS(id, "expressions"), NULL, accept = c(".csv", ".tsv")),
-      ),
-      column(6, 
-        fileInput(NS(id, "groups"), NULL, accept = c(".csv", ".tsv")),
+      column(12, 
+        sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25)
       )
     ),
     fluidRow(
       column(6, 
-        sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
         plotOutput(NS(id, "hist"))
       ),
       column(6, 
-        plotOutput(NS(id, "grouped_hist"))
+        plotOutput(NS(id, "filtered_hist"))
       )
     )
   )
