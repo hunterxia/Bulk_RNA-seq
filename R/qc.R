@@ -180,6 +180,7 @@ qcTabServer <- function(id, dataset) {
       },
       content = function(file) {
         tempDir <- "www"
+        dir.create(tempDir, recursive = TRUE, showWarnings = FALSE)
         filePath1 <- file.path(tempDir, "plot1.png")
         filePath2 <- file.path(tempDir, "plot2.png")
         filePath3 <- file.path(tempDir, "plot3.png")

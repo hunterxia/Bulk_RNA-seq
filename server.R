@@ -13,7 +13,7 @@ source("R/main.R")
 server <- function(input, output, session) {
   dataset <- mainTabServer("mainTabModule")
   qcTabServer("qc", dataset)
-  PCACorrelationTabServer("pca_correlation")
+  PCACorrelationTabServer("pca_correlation", dataset)
   clusteringTabServer("clustering")
   PairwiseComparisonTabServer("pariwise_comparison")
 }
