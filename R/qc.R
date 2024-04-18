@@ -1,3 +1,8 @@
+library(viridis)
+library(hrbrthemes)
+library(ggplot2)
+library(tidyr)
+
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     create_hist_plot <- function() {
