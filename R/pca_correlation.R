@@ -36,10 +36,53 @@ PCACorrelationTabServer <- function(id, dataset) {
     }
     
     create_correlation_plot <- function(){
+      req(dataset$expression_data())
       df <- dataset$expression_data()
       numerical_data <- df[,3:ncol(df)]
       #data_normalized <- scale(numerical_data)
-      corr_matrix <- cor(data_normalized, method = input$coefficient)
+      corr_matrix <- cor(numerical_data, method = input$coefficient)
+      #ggcorrplot(corr_matrix)
+      corr_melted <- melt(corr_matrix)
+      corr_melted$Var1 <- factor(corr_melted$Var1, levels = rev(unique(corr_melted$Var1)))
+      corr_melted$Var2 <- factor(corr_melted$Var2, levels = unique(corr_melted$Var2))
+      
+      custom_min <- input$scale[1]
+      custom_max <- input$scale[2]
+      colors <- colorRampPalette(c("blue", "white", "red"))(5)
+      breaks <- round(seq(custom_min, custom_max, length.out = 5), 2)
+      
+      # Plot using ggplot2
+      ggplot(data = corr_melted, aes(Var1, Var2, fill = value)) +
+        geom_tile() + # Create a heatmap
+        #geom_text(aes(label = round(value, 2)), size = 3) + # Add correlation coefficients
+        scale_fill_gradientn(colors = colors,
+                             values = scales::rescale(breaks),
+                             limits = c(custom_min, custom_max),
+                             oob = scales::squish,
+                             name = "Correlation") +
+        theme_minimal() + 
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5),
+              axis.text.y = element_text(size = 5), 
+              axis.title = element_blank())
+    }
+    
+    create_correlation_group_plot <- function(){
+      req(dataset$expression_data(), dataset$groups_data())
+      df <- dataset$expression_data()
+      groups <- dataset$groups_data()
+      #browser()
+      df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Variables", values_to = "Value")
+      df_long <- df_long %>%
+        left_join(groups, by = setNames( names(groups)[1], "Variables")) 
+      df_long <- df_long %>%
+        group_by(df_long[,1], df_long[,2], df_long[,5]) %>%
+        summarize(Value = sum(Value), .groups = "drop")
+      result_data <- pivot_wider(df_long, names_from = names(df_long)[3], values_from = Value, values_fill = list(value = 0))
+      
+      
+      numerical_data <- result_data[,3:ncol(result_data)]
+      #data_normalized <- scale(numerical_data)
+      corr_matrix <- cor(numerical_data, method = input$coefficient)
       #ggcorrplot(corr_matrix)
       corr_melted <- melt(corr_matrix)
       corr_melted$Var1 <- factor(corr_melted$Var1, levels = rev(unique(corr_melted$Var1)))
@@ -73,7 +116,13 @@ PCACorrelationTabServer <- function(id, dataset) {
     
     output$correlation <- renderPlotly({
       req(dataset$expression_data())
-      create_correlation_plot()
+      if (input$by == 1) {
+        return(create_correlation_plot())
+      }  else if (input$by == 2) {
+        return(create_correlation_group_plot())
+      } else if (input$by == 3) {
+        return(create_correlation_plot())
+      }
     })
     
     # download pca data
@@ -150,10 +199,16 @@ PCACorrelationTabUI <- function(id) {
       ),
       column(6, 
        fluidRow(
-         column(3, 
+         column(4, 
                 selectInput(NS(id, "coefficient"), "Coefficient:",
                             c("Pearson’s coefficient" = "pearson",
                               " Spearman’s rank coefficient" = "spearman"))
+         ),
+         column(2, 
+                selectInput(NS(id, "by"), "By:",
+                            c("None" = 1,
+                              "Group" = 2,
+                              "Cluster" = 3), selected=1)
          ),
          column(4, 
                 sliderInput(NS(id, "scale"),
@@ -163,7 +218,7 @@ PCACorrelationTabUI <- function(id) {
                             step = 0.05,
                             value = c(-1, 1))
          ),
-         column(3, 
+         column(2, 
                 downloadButton(NS(id, "download_corr"), "Download Data")
          )
        ),
