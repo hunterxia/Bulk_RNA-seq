@@ -7,13 +7,11 @@
 #    https://shiny.posit.co/
 #
 library(shiny)
-source("R/main.R")
 
-# Define server logic required to draw a histogram
 server <- function(input, output, session) {
-  dataset <- mainTabServer("mainTabModule")
+  dataset <- mainTabServer("main")
   qcTabServer("qc", dataset)
   PCACorrelationTabServer("pca_correlation", dataset)
   clusteringTabServer("clustering")
-  PairwiseComparisonTabServer("pariwise_comparison")
+  PairwiseComparisonTabServer("pariwise_comparison",dataset)
 }

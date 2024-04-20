@@ -10,13 +10,12 @@
 # ui.R
 
 library(shiny)
-source("R/main.R")  
 
 ui <- fluidPage(
   titlePanel("RNA-seq Data Visualization App"),
   tabsetPanel(
     tabPanel("MainTab",
-    mainTabUI("mainTabModule")),
+             mainTabUI("main")),
     tabPanel("QC Tab",
              qcTabUI("qc")),
     tabPanel("PCA and Correlation",
@@ -27,5 +26,3 @@ ui <- fluidPage(
              clusteringTabUI("clustering"))
   )
 )
-
-
