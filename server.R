@@ -9,6 +9,11 @@
 library(shiny)
 
 server <- function(input, output, session) {
+  session$onSessionEnded(function() {
+    while (!is.null(dev.list())) {
+      dev.off()
+    }
+  })
   dataset <- mainTabServer("main")
   qcTabServer("qc", dataset)
   PCACorrelationTabServer("pca_correlation", dataset)

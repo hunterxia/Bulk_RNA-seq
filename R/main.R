@@ -38,7 +38,8 @@ mainTabServer <- function(id) {
     # Reactive values to store data
     expression_data <- reactiveVal()
     groups_data <- reactiveVal()
-    filtered_data <- reactiveVal()  
+    filtered_data <- reactiveVal()
+    selected_samples_data <- reactiveVal()
     
     # Define a function to read data based on file type
     read_data <- function(file) {
@@ -73,7 +74,7 @@ mainTabServer <- function(id) {
           filter(Exp_Grp %in% selected_groups) %>%
           pull(HQ_samples) %>%
           unique()
-        
+
         output$sample_selection_ui <- renderUI({
           checkboxGroupInput(ns("sample_selection"), "Select Samples", choices = samples_in_selected_groups, selected = samples_in_selected_groups)
         })
@@ -100,6 +101,7 @@ mainTabServer <- function(id) {
       expr_data <- expression_data()
       selected_samples <- input$sample_selection
       cutoff <- input$expression_cutoff
+      selected_samples_data(selected_samples)
       
       # Filtering the expression data
       filtered_expr_data <- expr_data %>%
@@ -126,7 +128,8 @@ mainTabServer <- function(id) {
     return(list(
       expression_data = expression_data,
       groups_data = groups_data,
-      filtered_data = filtered_data
+      filtered_data = filtered_data,
+      selected_samples_data = selected_samples_data
     ))
   })
 }

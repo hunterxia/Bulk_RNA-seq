@@ -2,16 +2,49 @@ library(viridis)
 library(hrbrthemes)
 library(ggplot2)
 library(tidyr)
+library(shinyWidgets)
 
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     create_hist_plot <- function() {
       df <- dataset$expression_data()
-      df_log_normalized <- log1p(df[3:ncol(df)])
+      groups <- dataset$groups_data()
+      selected_samples <- dataset$selected_samples_data()
+      
+      df <- df %>%
+        select(c('Symbols', 'Genes', all_of(selected_samples)))
+      
+      colnames(df)[1] <- "Genes"
+      colnames(df)[2] <- "Symbols"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
+      
+      if (input$grouped) {
+        # show by grouped
+        df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Samples", values_to = "Values")
+        
+        df_long_grouped <- df_long %>%
+          left_join(groups, by = "Samples") 
+        
+        df_long_grouped_sum <- df_long_grouped %>%
+          group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
+          summarize(Values = sum(Values), .groups = "drop")
+        
+        df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
+        
+        df_log_normalized <- log1p(df_grouped[3:ncol(df_grouped)])
+        
+      } else {
+        # show by smaple
+        df_log_normalized <- log1p(df[3:ncol(df)])
+      }
+      
+      # plot
       df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
       bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
       bins_pt5 <- as.data.frame(bins_pt5)
-      bins_pt5 %>%
+      p <- bins_pt5 %>%
         ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
         geom_line() +
         scale_color_viridis(discrete = TRUE) +
@@ -36,15 +69,44 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
           legend.key.size = unit(0.5, "cm")
         )
+      
+        ggplotly(p, tooltip = "text")
     }
     
     create_filtered_hist_plot <- function() {
       df <- dataset$filtered_data()
-      df_log_normalized <- log1p(df[3:ncol(df)])
+      groups <- dataset$groups_data()
+      
+      colnames(df)[1] <- "Genes"
+      colnames(df)[2] <- "Symbols"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
+      if (input$grouped) {
+        # show by grouped
+        df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Samples", values_to = "Values")
+        
+        df_long_grouped <- df_long %>%
+          left_join(groups, by = "Samples") 
+        
+        df_long_grouped_sum <- df_long_grouped %>%
+          group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
+          summarize(Values = sum(Values), .groups = "drop")
+        
+        df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
+        
+        df_log_normalized <- log1p(df_grouped[3:ncol(df_grouped)])
+        
+      } else {
+        # show by smaple
+        df_log_normalized <- log1p(df[3:ncol(df)])
+      }
+      
+      # plot
       df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
       bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
       bins_pt5 <- as.data.frame(bins_pt5)
-      bins_pt5 %>%
+      p <- bins_pt5 %>%
         ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
         geom_line() +
         scale_color_viridis(discrete = TRUE) +
@@ -69,6 +131,8 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
           legend.key.size = unit(0.5, "cm")
         )
+      
+        ggplotly(p, tooltip = "text")
     }
     
     create_grouped_plot <- function() {
@@ -81,12 +145,12 @@ qcTabServer <- function(id, dataset) {
         group_by(df_long[,1], df_long[,2], df_long[,5]) %>%
         summarize(Value = sum(Value), .groups = "drop")
       result_data <- pivot_wider(df_long, names_from = names(df_long)[3], values_from = Value, values_fill = list(value = 0))
-      
+
       df_melt <- melt(result_data, variable.factor=TRUE, variable.name="variable", value.name="value")
       bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
       bins_pt5 <- as.data.frame(bins_pt5)
       
-      bins_pt5 %>%
+      p <- bins_pt5 %>%
         ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
         geom_line() +
         scale_color_viridis(discrete = TRUE) +
@@ -111,6 +175,8 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
           legend.key.size = unit(0.5, "cm") 
         )
+      
+        ggplotly(p, tooltip = "text")
     }
     
     create_grouped_filtered_plot <- function() {
@@ -129,7 +195,7 @@ qcTabServer <- function(id, dataset) {
       bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
       bins_pt5 <- as.data.frame(bins_pt5)
       
-      bins_pt5 %>%
+      p <- bins_pt5 %>%
         ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
         geom_line() +
         scale_color_viridis(discrete = TRUE) +
@@ -155,28 +221,30 @@ qcTabServer <- function(id, dataset) {
           legend.key.size = unit(0.5, "cm")
         )
       
+      ggplotly(p, tooltip = "text")
+
     }
     
-    output$hist <- renderPlot({
+    output$hist <- renderPlotly({
       req(dataset$expression_data())
       create_hist_plot()
-    }, res = 96)
+    })
     
-    output$filtered_hist <- renderPlot({
+    output$filtered_hist <- renderPlotly({
       req(dataset$expression_data())
       create_filtered_hist_plot()
-    }, res = 96)
+    })
     
-    output$grouped_hist <- renderPlot({
+    output$grouped_hist <- renderPlotly({
       req(dataset$expression_data())
       create_grouped_plot()
-    }, res = 96)
+    })
     
     
-    output$grouped_filtered_hist <- renderPlot({
+    output$grouped_filtered_hist <- renderPlotly({
       req(dataset$expression_data())
       create_grouped_filtered_plot()
-    }, res = 96)
+    })
   
     
     output$download_hist <- downloadHandler(
@@ -205,30 +273,32 @@ qcTabServer <- function(id, dataset) {
 
 qcTabUI <- function(id) {
   fluidPage(
-    titlePanel("QC"),
+    # titlePanel("QC"),
     fluidRow(
-      column(3, 
+      column(2, 
         sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
-        downloadButton(NS(id, "download_hist"), "Download Plots")
+        # downloadButton(NS(id, "download_hist"), "Download Plots")
+        materialSwitch(inputId = NS(id, "grouped"), label = "Show by group", value = TRUE, status = "primary")
       ),
       column(3, 
-        
+        # switchInput(inputId = "grouped", label = "Show by group", value = TRUE)
+        # materialSwitch(inputId = "Id077", label = "Show by group", value = TRUE, status = "primary")
       ),
     ),
     fluidRow(
       column(6, 
-        plotOutput(NS(id, "hist"))
+        plotlyOutput(NS(id, "hist"))
       ),
       column(6, 
-        plotOutput(NS(id, "filtered_hist"))
+        plotlyOutput(NS(id, "filtered_hist"))
       )
     ),
     fluidRow(
       column(6, 
-        plotOutput(NS(id, "grouped_hist"))
+        plotlyOutput(NS(id, "grouped_hist"))
       ),
       column(6, 
-        plotOutput(NS(id, "grouped_filtered_hist"))
+        plotlyOutput(NS(id, "grouped_filtered_hist"))
       )
     )
   )

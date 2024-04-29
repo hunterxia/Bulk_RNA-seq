@@ -73,14 +73,14 @@ clusteringTabServer <- function(id, dataset) {
         left_join(max_group_means, by = "Genes")
       
       # update selected variable genes
-      variable_genes <- filter(result_data, p_value > input$y_cutoff, MaxMean > input$x_cutoff)
+      variable_genes <- filter(result_data, p_value_adj > input$y_cutoff, MaxMean > input$x_cutoff)
       selected_variable_genes(variable_genes)
       
       # highlight selected variable genes in the plot
-      result_data$highlight <- ifelse(result_data$p_value > input$y_cutoff & result_data$MaxMean > input$x_cutoff, "Highlighted", "Normal")
+      result_data$highlight <- ifelse(result_data$p_value_adj > input$y_cutoff & result_data$MaxMean > input$x_cutoff, "Highlighted", "Normal")
       
       p <- result_data %>%
-        ggplot(aes(x = MaxMean, y = p_value, label = Genes, color = highlight, text = paste("Genes:", Genes, "<br>x:", MaxMean, "<br>y:", p_value))) + 
+        ggplot(aes(x = MaxMean, y = p_value_adj, label = Genes, color = highlight, text = paste("Genes:", Genes, "<br>x:", MaxMean, "<br>y:", p_value))) + 
         geom_point(size=3) +
         scale_color_manual(values = c("Highlighted" = "red", "Normal" = "blue")) +
         labs(x=paste0("MaxMean"),
@@ -134,7 +134,7 @@ clusteringTabServer <- function(id, dataset) {
         return(p)
       } else {
         # hierarchical clustering
-        p <- pheatmap(gene_expression_z,
+        pp <- pheatmap(gene_expression_z,
                       cluster_rows = TRUE,
                       clustering_distance_rows = "correlation",
                       cluster_cols = FALSE, 
@@ -145,9 +145,11 @@ clusteringTabServer <- function(id, dataset) {
                       fontsize_col = 7,
                       width = 10, 
                       height = 12)    
-        print(p)
-        return(p)
+        print(pp)
+        return(pp)
       }
+      # print(p)
+      # return(p)
     })
     
 
