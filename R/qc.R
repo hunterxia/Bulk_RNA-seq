@@ -14,8 +14,8 @@ qcTabServer <- function(id, dataset) {
       df <- df %>%
         select(c('Symbols', 'Genes', all_of(selected_samples)))
       
-      colnames(df)[1] <- "Genes"
-      colnames(df)[2] <- "Symbols"
+      colnames(df)[1] <- "Symbols"
+      colnames(df)[2] <- "Genes"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -77,8 +77,8 @@ qcTabServer <- function(id, dataset) {
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
       
-      colnames(df)[1] <- "Genes"
-      colnames(df)[2] <- "Symbols"
+      colnames(df)[1] <- "Symbols"
+      colnames(df)[2] <- "Genes"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -278,7 +278,7 @@ qcTabUI <- function(id) {
       column(2, 
         sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
         # downloadButton(NS(id, "download_hist"), "Download Plots")
-        materialSwitch(inputId = NS(id, "grouped"), label = "Show by group", value = TRUE, status = "primary")
+        materialSwitch(inputId = NS(id, "grouped"), label = "Show by group: ", value = FALSE, status = "primary")
       ),
       column(3, 
         # switchInput(inputId = "grouped", label = "Show by group", value = TRUE)
