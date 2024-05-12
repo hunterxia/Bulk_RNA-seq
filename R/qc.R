@@ -35,20 +35,32 @@ qcTabServer <- function(id, dataset) {
         df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
         
         df_log_normalized <- log1p(df_grouped[3:ncol(df_grouped)])
+        df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
+        bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
+        bins_pt5 <- as.data.frame(bins_pt5)
+        bins_pt5 <- bins_pt5 %>%
+          left_join(groups, by = c("Var2" = "EXPERIMENTAL_GROUP")) 
         
       } else {
         # show by smaple
         df_log_normalized <- log1p(df[3:ncol(df)])
+        df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
+        bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
+        bins_pt5 <- as.data.frame(bins_pt5)
+      }
+
+      if("Color" %in% colnames(bins_pt5)) {
+        colors <- unique(bins_pt5$Color)
+        names(colors) <- unique(bins_pt5$Var2)
+        scale_color <- scale_color_manual(values = colors)
+      } else {
+        scale_color <- scale_color_viridis(discrete = TRUE)
       }
       
-      # plot
-      df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
-      bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
-      bins_pt5 <- as.data.frame(bins_pt5)
       p <- bins_pt5 %>%
-        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
+        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2, text = paste(ifelse(input$grouped, "Group:", "Sample:"), Var2, "<br>Interval:", Var1, "<br>Count:", Freq))) +
         geom_line() +
-        scale_color_viridis(discrete = TRUE) +
+        scale_color +
         ggtitle("Popularity of American names in the previous 30 years") +
         theme_ipsum() + 
         labs(
@@ -97,10 +109,26 @@ qcTabServer <- function(id, dataset) {
         df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
         
         df_log_normalized <- log1p(df_grouped[3:ncol(df_grouped)])
+        df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
+        bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
+        bins_pt5 <- as.data.frame(bins_pt5)
+        bins_pt5 <- bins_pt5 %>%
+          left_join(groups, by = c("Var2" = "EXPERIMENTAL_GROUP")) 
         
       } else {
         # show by smaple
         df_log_normalized <- log1p(df[3:ncol(df)])
+        df_melt <- melt(df_log_normalized, variable.factor=TRUE, variable.name="variable", value.name="value")
+        bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
+        bins_pt5 <- as.data.frame(bins_pt5)
+      }
+      
+      if("Color" %in% colnames(bins_pt5)) {
+        colors <- unique(bins_pt5$Color)
+        names(colors) <- unique(bins_pt5$Var2)
+        scale_color <- scale_color_manual(values = colors)
+      } else {
+        scale_color <- scale_color_viridis(discrete = TRUE)
       }
       
       # plot
@@ -108,9 +136,9 @@ qcTabServer <- function(id, dataset) {
       bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
       bins_pt5 <- as.data.frame(bins_pt5)
       p <- bins_pt5 %>%
-        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
+        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2, text = paste(ifelse(input$grouped, "Group:", "Sample:"), Var2, "<br>Interval:", Var1, "<br>Count:", Freq))) +
         geom_line() +
-        scale_color_viridis(discrete = TRUE) +
+        scale_color +
         ggtitle("Popularity of American names in the previous 30 years") +
         theme_ipsum() + 
         labs(
@@ -154,9 +182,14 @@ qcTabServer <- function(id, dataset) {
       if (input$grouped) {
         lengths_df_grouped <- lengths_df %>%
           left_join(groups, by = "Samples") 
+
+        color_values <- unique(lengths_df_grouped$Color)
+        names(color_values) <- unique(lengths_df_grouped$EXPERIMENTAL_GROUP)
+        fill_color <- scale_fill_manual(values = color_values)
         
-        p <- ggplot(lengths_df_grouped, aes(x = EXPERIMENTAL_GROUP, y = Gene_Count)) +
-          geom_boxplot(fill = "steelblue", outlier.colour = "red", outlier.shape = 1) +
+        p <- ggplot(lengths_df_grouped, aes(x = EXPERIMENTAL_GROUP, y = Gene_Count, fill = EXPERIMENTAL_GROUP)) +
+          geom_boxplot(outlier.colour = "red", outlier.shape = 1) +
+          fill_color + 
           labs(title = plot_title,
                x = "Groups",
                y = "Gene Count") +
@@ -167,29 +200,30 @@ qcTabServer <- function(id, dataset) {
             axis.title.y = element_text(hjust = 0.5),
             panel.border = element_rect(colour = "black", fill = NA, size = 1),
             legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
+            legend.position = "none",
             legend.title = element_blank(),
-            legend.position = c(1, 1),
             legend.justification = c("right", "top"),
             legend.box.just = "right",
             legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
             legend.key.size = unit(0.5, "cm"))
       } else {
         # Create a bar plot
-        p <- ggplot(lengths_df, aes(x = Samples, y = Gene_Count, text = paste(ifelse(input$grouped, "Group:", "Sample:"), Samples, "<br>Count:", Gene_Count))) +
-          geom_bar(stat = "identity", fill = "steelblue") +
+        p <- ggplot(lengths_df, aes(x = Samples, y = Gene_Count, fill = Samples, text = paste("Sample:", Samples, "<br>Count:", Gene_Count))) +
+          geom_bar(stat = "identity") +
+          scale_fill_viridis(discrete = TRUE) +
           labs(title = plot_title,
                x = "Samples",
-               y = "Genes Count") +
+               y = "Gene Count") +
           theme_minimal() +
           theme_ipsum() +
           theme(
-            axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+            axis.text.x = element_text(angle = 45, hjust = 1),
             axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
             axis.title.y = element_text(hjust = 0.5),
             panel.border = element_rect(colour = "black", fill = NA, size = 1),
+            legend.position = "none",
             legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
             legend.title = element_blank(),
-            legend.position = c(1, 1),
             legend.justification = c("right", "top"),
             legend.box.just = "right",
             legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
