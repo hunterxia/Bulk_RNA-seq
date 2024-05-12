@@ -15,11 +15,6 @@ PCACorrelationTabServer <- function(id, dataset) {
       rs <- rowSums(df[, 3:ncol(df)])
       use <- (rs > 0)
       df <- df[use, ]
-
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
-      colnames(groups)[1] <- "Samples"
-      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
       if (input$pca_grouped) {
         gene_data_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Samples", values_to = "Values")
@@ -46,13 +41,32 @@ PCACorrelationTabServer <- function(id, dataset) {
       df <- dataset$expression_data()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
+      
+      colnames(df)[1] <- "Symbols"
+      colnames(df)[2] <- "Genes"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
       pc_x <- as.numeric(input$pc_x)
       pc_y <- as.numeric(input$pc_y)
-      
+      # browser()
       df_transposed <- get_pca_data(df, groups, selected_samples)
       pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
       percentVar <- pca_comp$sdev^2/sum(pca_comp$sdev^2)
       pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
+      
+      if (input$pca_grouped) {
+        group_color <- groups %>%
+          group_by(Color) %>%
+          slice(1) 
+        pca_df <- pca_df %>%
+          left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP")) 
+        colors <- unique(pca_df$Color)
+        names(colors) <- unique(pca_df$Var2)
+        scale_color <- scale_color_manual(values = colors)
+      } else {
+        scale_color <- scale_color_viridis(discrete = TRUE)
+      }
    
       p <- pca_df %>%
         ggplot(aes(x = pca_df[, pc_x],y = pca_df[, pc_y], label = sampleLab, color = sampleLab, 
@@ -60,6 +74,7 @@ PCACorrelationTabServer <- function(id, dataset) {
         geom_point(size=5) +
         labs(x=paste0("PC", pc_x, ": ", round(percentVar[pc_x]*100,1), "% variance"),
              y=paste0("PC", pc_y, ": ", round(percentVar[pc_y]*100,1), "% variance")) +
+        scale_color + 
         theme_minimal() + 
         theme(legend.position = "right") +
         theme_linedraw(base_size=16) +
@@ -215,6 +230,10 @@ PCACorrelationTabServer <- function(id, dataset) {
       df <- dataset$expression_data()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
+      colnames(df)[1] <- "Genes"
+      colnames(df)[2] <- "Symbols"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       df_transposed <- get_pca_data(df, groups, selected_samples)
       pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
       col_names <- colnames(pca_comp$x)
@@ -234,6 +253,10 @@ PCACorrelationTabServer <- function(id, dataset) {
       df <- dataset$expression_data()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
+      colnames(df)[1] <- "Genes"
+      colnames(df)[2] <- "Symbols"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       df_transposed <- get_pca_data(df, groups, selected_samples)
       pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
       col_names <- colnames(pca_comp$x)
