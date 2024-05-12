@@ -3,6 +3,7 @@ library(hrbrthemes)
 library(ggplot2)
 library(tidyr)
 library(shinyWidgets)
+# library(colourpicker)
 
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -135,94 +136,67 @@ qcTabServer <- function(id, dataset) {
         ggplotly(p, tooltip = "text")
     }
     
-    create_grouped_plot <- function() {
-      df <- dataset$expression_data()
-      groups <- dataset$groups_data()
-      df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Variables", values_to = "Value")
-      df_long <- df_long %>%
-        left_join(groups, by = setNames( names(groups)[1], "Variables")) 
-      df_long <- df_long %>%
-        group_by(df_long[,1], df_long[,2], df_long[,5]) %>%
-        summarize(Value = sum(Value), .groups = "drop")
-      result_data <- pivot_wider(df_long, names_from = names(df_long)[3], values_from = Value, values_fill = list(value = 0))
-
-      df_melt <- melt(result_data, variable.factor=TRUE, variable.name="variable", value.name="value")
-      bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
-      bins_pt5 <- as.data.frame(bins_pt5)
+    create_expressed_gene_plot <- function(df, groups, plot_title) {
+      numeric_data <- df[,-c(1,2)]
       
-      p <- bins_pt5 %>%
-        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
-        geom_line() +
-        scale_color_viridis(discrete = TRUE) +
-        ggtitle("Popularity of American names in the previous 30 years") +
-        theme_ipsum() + 
-        labs(
-          x = paste0("Bins(binsize=", input$bin_size, ")"),
-          y = "Gene Counts",
-          title = "Histogram after grouping"
-        ) +
-        guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
-        theme(
-          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-          axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
-          axis.title.y = element_text(hjust = 0.5),
-          panel.border = element_rect(colour = "black", fill = NA, size = 1),
-          legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
-          legend.title = element_blank(),
-          legend.position = c(1, 1),
-          legend.justification = c("right", "top"),
-          legend.box.just = "right",
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
-          legend.key.size = unit(0.5, "cm") 
-        )
+      # Function to filter a column and return its length
+      filter_column_length <- function(column) {
+        # Count only values greater than 5
+        return(length(column[column > 0]))
+      }
+      
+      # Get the lengths of filtered columns in a named list
+      column_lengths <- sapply(numeric_data, filter_column_length)
+      
+      # Convert the named list to a data frame with a row for each sample
+      lengths_df <- data.frame(Samples = names(column_lengths), Gene_Count = column_lengths)
+      
+      if (input$grouped) {
+        lengths_df_grouped <- lengths_df %>%
+          left_join(groups, by = "Samples") 
+        
+        p <- ggplot(lengths_df_grouped, aes(x = EXPERIMENTAL_GROUP, y = Gene_Count)) +
+          geom_boxplot(fill = "steelblue", outlier.colour = "red", outlier.shape = 1) +
+          labs(title = plot_title,
+               x = "Groups",
+               y = "Gene Count") +
+          theme_ipsum() +
+          theme(
+            axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+            axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
+            axis.title.y = element_text(hjust = 0.5),
+            panel.border = element_rect(colour = "black", fill = NA, size = 1),
+            legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
+            legend.title = element_blank(),
+            legend.position = c(1, 1),
+            legend.justification = c("right", "top"),
+            legend.box.just = "right",
+            legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+            legend.key.size = unit(0.5, "cm"))
+      } else {
+        # Create a bar plot
+        p <- ggplot(lengths_df, aes(x = Samples, y = Gene_Count, text = paste(ifelse(input$grouped, "Group:", "Sample:"), Samples, "<br>Count:", Gene_Count))) +
+          geom_bar(stat = "identity", fill = "steelblue") +
+          labs(title = plot_title,
+               x = "Samples",
+               y = "Genes Count") +
+          theme_minimal() +
+          theme_ipsum() +
+          theme(
+            axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+            axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
+            axis.title.y = element_text(hjust = 0.5),
+            panel.border = element_rect(colour = "black", fill = NA, size = 1),
+            legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
+            legend.title = element_blank(),
+            legend.position = c(1, 1),
+            legend.justification = c("right", "top"),
+            legend.box.just = "right",
+            legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+            legend.key.size = unit(0.5, "cm"))
+      }
       
         ggplotly(p, tooltip = "text")
-    }
-    
-    create_grouped_filtered_plot <- function() {
-      df <- dataset$filtered_data()
-      groups <- dataset$groups_data()
-      df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Variables", values_to = "Value")
-      df_long <- df_long %>%
-        left_join(groups, by = setNames( names(groups)[1], "Variables")) 
-      df_long <- df_long %>%
-        group_by(df_long[,1], df_long[,2], df_long[,5]) %>%
-        summarize(Value = sum(Value), .groups = "drop")
-      
-      result_data <- pivot_wider(df_long, names_from = names(df_long)[3], values_from = Value, values_fill = list(value = 0))
-      
-      df_melt <- melt(result_data, variable.factor=TRUE, variable.name="variable", value.name="value")
-      bins_pt5 <- table(cut(df_melt$value, breaks=seq(0, 16.5, by=input$bin_size)), df_melt$variable)
-      bins_pt5 <- as.data.frame(bins_pt5)
-      
-      p <- bins_pt5 %>%
-        ggplot(aes(x=Var1, y=Freq, group=Var2, color=Var2)) +
-        geom_line() +
-        scale_color_viridis(discrete = TRUE) +
-        ggtitle("Popularity of American names in the previous 30 years") +
-        theme_ipsum() + 
-        labs(
-          x = paste0("Bins(binsize=", input$bin_size, ")"),
-          y = "Gene Counts", 
-          title = "Histogram after grouping and filtering"
-        ) +
-        guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
-        theme(
-          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-          axis.title.x = element_text(vjust = 0.5, hjust = 0.5), 
-          axis.title.y = element_text(hjust = 0.5),
-          panel.border = element_rect(colour = "black", fill = NA, size = 1),
-          legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
-          legend.title = element_blank(),
-          legend.position = c(1, 1),
-          legend.justification = c("right", "top"),
-          legend.box.just = "right",
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
-          legend.key.size = unit(0.5, "cm")
-        )
-      
-      ggplotly(p, tooltip = "text")
-
     }
     
     output$hist <- renderPlotly({
@@ -236,14 +210,33 @@ qcTabServer <- function(id, dataset) {
     })
     
     output$grouped_hist <- renderPlotly({
-      req(dataset$expression_data())
-      create_grouped_plot()
+      req(dataset$expression_data(), dataset$selected_samples_data())
+      df <- dataset$expression_data()
+      selected_samples <- dataset$selected_samples_data()
+      groups <- dataset$groups_data()
+      df <- df %>%
+        select(c('Symbols', 'Genes', all_of(selected_samples)))
+      
+      colnames(df)[1] <- "Symbols"
+      colnames(df)[2] <- "Genes"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
+      create_expressed_gene_plot(df, groups, "Number of Genes before filtering")
     })
     
     
     output$grouped_filtered_hist <- renderPlotly({
-      req(dataset$expression_data())
-      create_grouped_filtered_plot()
+      req(dataset$filtered_data())
+      df <- dataset$filtered_data()
+      groups <- dataset$groups_data()
+      
+      colnames(df)[1] <- "Symbols"
+      colnames(df)[2] <- "Genes"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
+      create_expressed_gene_plot(df, groups, "Number of Genes after filtering")
     })
   
     
@@ -257,12 +250,12 @@ qcTabServer <- function(id, dataset) {
         filePath1 <- file.path(tempDir, "plot1.png")
         filePath2 <- file.path(tempDir, "plot2.png")
         filePath3 <- file.path(tempDir, "plot3.png")
-        filePath4 <- file.path(tempDir, "plot4.png")
+        #filePath4 <- file.path(tempDir, "plot4.png")
         # Save plots
         ggsave(filePath1, plot = create_hist_plot(), device = "png", width = 10, height = 8, dpi = 300)
         ggsave(filePath2, plot = create_filtered_hist_plot(), device = "png", width = 10, height = 8, dpi = 300)
         ggsave(filePath3, plot = create_grouped_plot(), device = "png", width = 10, height = 8, dpi = 300)
-        ggsave(filePath4, plot = create_grouped_filtered_plot(), device = "png", width = 10, height = 8, dpi = 300)
+        #ggsave(filePath4, plot = create_grouped_filtered_plot(), device = "png", width = 10, height = 8, dpi = 300)
         # Create zip file
         zip(file, files = c(filePath1, filePath2, filePath3, filePath4))
       }
@@ -278,9 +271,10 @@ qcTabUI <- function(id) {
       column(2, 
         sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
         # downloadButton(NS(id, "download_hist"), "Download Plots")
-        materialSwitch(inputId = NS(id, "grouped"), label = "Show by group: ", value = FALSE, status = "primary")
       ),
-      column(3, 
+      column(1, 
+        materialSwitch(inputId = NS(id, "grouped"), label = "Show by group: ", value = FALSE, status = "primary")
+        # colourInput(NS(id, "color"), "a01_brain_microglia1_Exp1_m:", value = "#FFFFFF"),
         # switchInput(inputId = "grouped", label = "Show by group", value = TRUE)
         # materialSwitch(inputId = "Id077", label = "Show by group", value = TRUE, status = "primary")
       ),

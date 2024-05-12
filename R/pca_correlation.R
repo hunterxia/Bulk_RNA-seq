@@ -69,97 +69,70 @@ PCACorrelationTabServer <- function(id, dataset) {
               legend.text = element_text(size = 10),
               legend.position = "right")
       
-      p
+      ggplotly(p, tooltip = "text")
     }
     
-    create_correlation_plot <- function(){
-      req(dataset$filtered_data())
-      df <- dataset$filtered_data()
-      numerical_data <- df[,3:ncol(df)]
-      data_normalized <- scale(numerical_data)
-      corr_matrix <- cor(data_normalized, method = input$coefficient)
-      corr_melted <- melt(corr_matrix)
-      corr_melted$Var1 <- factor(corr_melted$Var1, levels = rev(unique(corr_melted$Var1)))
-      corr_melted$Var2 <- factor(corr_melted$Var2, levels = unique(corr_melted$Var2))
-      
-      custom_min <- input$scale[1]
-      custom_max <- input$scale[2]
-      colors <- colorRampPalette(c("blue", "white", "red"))(5)
-      breaks <- round(seq(custom_min, custom_max, length.out = 5), 2)
-      
-      # Plot using ggplot2
-      ggplot(data = corr_melted, aes(Var1, Var2, fill = value)) +
-        geom_tile() + # Create a heatmap
-        #geom_text(aes(label = round(value, 2)), size = 3) + # Add correlation coefficients
-        scale_fill_gradientn(colors = colors,
-                             values = scales::rescale(breaks),
-                             limits = c(custom_min, custom_max),
-                             oob = scales::squish,
-                             name = "Correlation") +
-        theme_minimal() + 
-        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5),
-              axis.text.y = element_text(size = 5), 
-              axis.title = element_blank())
+    create_correlation_plot <- function(data, Pearson_or_Spearman){
+      numerical_data <- data[,3:ncol(data)]
+      if(Pearson_or_Spearman == "pearson") {
+        title_hierarchical <- "Pearson's Correlation Matrix"
+        cor_matrix <- cor(numerical_data, method = "pearson")
+      } else {
+        title_hierarchical <- "Spearman's Correlation Matrix"
+        cor_matrix <- cor(numerical_data, method = "spearman")
+      }
+      p <- pheatmap::pheatmap(cor_matrix, 
+               cluster_rows = FALSE,
+               cluster_cols = FALSE,
+               clustering_distance_rows = "euclidean",
+               clustering_distance_cols = "euclidean",
+               clustering_method = "complete",
+               fontsize_row = 10,
+               main = title_hierarchical,
+               treeheight_row = 30,
+               angle_col = 315,
+               fontsize_col = 10,
+               width = 10,
+               height = 10)
+      print(p)
+      return(p)
     }
     
-    create_correlation_group_plot <- function(){
-      req(dataset$filtered_data(), dataset$groups_data())
-      df <- dataset$filtered_data()
-      groups <- dataset$groups_data()
-      df_long <- pivot_longer(df, cols = -names(df)[1:2], names_to = "Variables", values_to = "Value")
-      df_long <- df_long %>%
-        left_join(groups, by = setNames( names(groups)[1], "Variables")) 
-      df_long <- df_long %>%
-        group_by(df_long[,1], df_long[,2], df_long[,5]) %>%
-        summarize(Value = sum(Value), .groups = "drop")
-      result_data <- pivot_wider(df_long, names_from = names(df_long)[3], values_from = Value, values_fill = list(value = 0))
-      
-      
-      numerical_data <- result_data[,3:ncol(result_data)]
-      data_normalized <- scale(numerical_data)
-      corr_matrix <- cor(data_normalized, method = input$coefficient)
-      corr_melted <- melt(corr_matrix)
-      corr_melted$Var1 <- factor(corr_melted$Var1, levels = rev(unique(corr_melted$Var1)))
-      corr_melted$Var2 <- factor(corr_melted$Var2, levels = unique(corr_melted$Var2))
-      
-      custom_min <- input$scale[1]
-      custom_max <- input$scale[2]
-      colors <- colorRampPalette(c("blue", "white", "red"))(5)
-      breaks <- round(seq(custom_min, custom_max, length.out = 5), 2)
-      
-      # Plot using ggplot2
-      ggplot(data = corr_melted, aes(Var1, Var2, fill = value)) +
-        geom_tile() + # Create a heatmap
-        #geom_text(aes(label = round(value, 2)), size = 3) + # Add correlation coefficients
-        scale_fill_gradientn(colors = colors,
-                             values = scales::rescale(breaks),
-                             limits = c(custom_min, custom_max),
-                             oob = scales::squish,
-                             name = "Correlation") +
-        theme_minimal() + 
-        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5),
-              axis.text.y = element_text(size = 5), 
-              axis.title = element_blank())
-    }
     
-    create_samples_hierachy_plot <- function() {
-      req(dataset$filtered_data())
-      gene_data <- dataset$filtered_data() %>% select(-Symbols)
-      gene_expression_z <- t(scale(t(gene_data[,2:ncol(gene_data)])))  # 对每个基因进行 z-score 标准化
-      gene_expression_z[is.na(gene_expression_z)] <- 0 
+    create_clustering_plot <- function(data, Pearson_or_Spearman) {
+      data_sample_expr <- data[,-c(1,2)]
+
+      if(Pearson_or_Spearman == "pearson") {
+        title_kmeans <- "K-means Clustered, Pearson's Correlation Matrix"
+        doc_label_kmeans <- "Kmeans_Pearsons_Correlation_Matrix"
+        title_hierarchical <- "Hierarchically Clustered, Pearson's Correlation Matrix"
+        doc_label_hierarchical <- "Hierarchical_Pearsons_Correlation_Matrix"
+        cluster_assignment <- "Kmeans_Pearsons_Correlation_Matrix_cluster_assignments"
+        cor_matrix <- cor(data_sample_expr, method = "pearson")
+      } else {
+        title_kmeans <- "K-means Clustered, Spearman's Correlation Matrix"
+        doc_label_kmeans <- "Kmeans_Spearmans_Correlation_Matrix"
+        title_hierarchical <- "Hierarchically Clustered, Spearman's Correlation Matrix"
+        doc_label_hierarchical <- "Hierarchical_Spearmans_Correlation_Matrix"
+        cluster_assignment <- "Kmeans_Spearmans_Correlation_Matrix_cluster_assignments"
+        cor_matrix <- cor(data_sample_expr, method = "spearman")
+      }
       
-      # Hierarchical Clustering
-      pheatmap(gene_expression_z,
-               cluster_rows = TRUE,
-               clustering_distance_rows = "correlation",
-               cluster_cols = FALSE, 
-               fontsize_row = .10,
-               main = paste0("Correlation Distance Hierarchical Clustering Gene Expression Matrix"),
-               treeheight_row = 30, 
-               angle_col = 315, 
-               fontsize_col = 7,
-               width = 10, 
-               height = 12)
+      set.seed(40)
+      hierarchical_clustered_correction_plot <- pheatmap::pheatmap(cor_matrix, 
+                                                                   cluster_rows = TRUE,
+                                                                   cluster_cols = TRUE, 
+                                                                   clustering_distance_rows = "correlation",
+                                                                   clustering_distance_cols = "correlation",
+                                                                   fontsize_row = 10,
+                                                                   main = title_hierarchical,
+                                                                   treeheight_row = 30,
+                                                                   angle_col = 315,
+                                                                   fontsize_col = 10,
+                                                                   width = 10,
+                                                                   height = 10)
+      print(hierarchical_clustered_correction_plot)
+      return(hierarchical_clustered_correction_plot)
     }
     
     
@@ -169,16 +142,39 @@ PCACorrelationTabServer <- function(id, dataset) {
     })
     
     output$correlation <- renderPlot({
-      req(dataset$expression_data())
-      if (input$by == 1) {
-        return(create_correlation_plot())
-      }  else if (input$by == 2) {
-        return(create_correlation_group_plot())
-      } else if (input$by == 3) {
-        hierachy_plot <- create_samples_hierachy_plot()
-        print(hierachy_plot)
-        return(hierachy_plot)
+      req(dataset$filtered_data(), dataset$groups_data())
+      gene_data <- dataset$filtered_data()
+      groups <- dataset$groups_data()
+      colnames(gene_data)[1] <- "Genes"
+      colnames(gene_data)[2] <- "Symbols"
+      colnames(groups)[1] <- "Samples"
+      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      
+      # show by grouped
+      if (input$pca_grouped) {
+        gene_data_long <- pivot_longer(gene_data, cols = -names(gene_data)[1:2], names_to = "Samples", values_to = "Values")
+        
+        gene_data_long_grouped <- gene_data_long %>%
+          left_join(groups, by = "Samples") 
+        
+        gene_data_long_grouped_sum <- gene_data_long_grouped %>%
+          group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
+          summarize(Values = sum(Values), .groups = "drop")
+        
+        data <- pivot_wider(gene_data_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
+      } else {
+        data <- gene_data
       }
+      
+      if (input$clustered) {
+        plot <- create_clustering_plot(data, input$coefficient)
+      } else {
+        plot <- create_correlation_plot(data, input$coefficient)
+      }
+      
+      print(plot)
+      return(plot)
+      
     }, res = 96)
     
     # download pca data
@@ -285,7 +281,7 @@ PCACorrelationTabUI <- function(id) {
                 selectInput(NS(id, "pc_y"), "Y Axis:",
                             c("PC2" = 2), selected=2)
          ),
-         column(3, 
+         column(2, 
                 materialSwitch(inputId = NS(id, "pca_grouped"), label = "Show by group: ", value = FALSE, status = "primary")
          )
        ),
@@ -300,10 +296,11 @@ PCACorrelationTabUI <- function(id) {
                               " Spearman’s rank coefficient" = "spearman"))
          ),
          column(2, 
-                selectInput(NS(id, "by"), "By:",
-                            c("None" = 1,
-                              "Group" = 2,
-                              "Cluster" = 3), selected=1)
+                # selectInput(NS(id, "by"), "By:",
+                #             c("None" = 1,
+                #               "Group" = 2,
+                #               "Cluster" = 3), selected=1)
+                materialSwitch(inputId = NS(id, "clustered"), label = "Show by cluster: ", value = FALSE, status = "primary")
          ),
          column(4, 
                 sliderInput(NS(id, "scale"),

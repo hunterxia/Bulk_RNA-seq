@@ -7,11 +7,16 @@
 #    https://shiny.posit.co/
 #
 library(shiny)
-
+source("R/main.R")
+source("R/qc.R")
+source("R/pca_correlation.R")
+source("R/pairwise _comparison.R")
+source("R/clustering.R")
 server <- function(input, output, session) {
   session$onSessionEnded(function() {
     while (!is.null(dev.list())) {
       dev.off()
+      graphics.off() 
     }
   })
   dataset <- mainTabServer("main")
