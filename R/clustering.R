@@ -147,7 +147,7 @@ clusteringTabServer <- function(id, dataset) {
     }
     
     output$heatmap_plot <- renderPlot({
-      req(selected_variable_genes())
+      req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       df <- dataset$filtered_data()
       gene_data <- df %>% select(-Symbols)

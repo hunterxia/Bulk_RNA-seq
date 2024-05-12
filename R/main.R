@@ -40,6 +40,7 @@ mainTabServer <- function(id) {
     groups_data <- reactiveVal()
     filtered_data <- reactiveVal()  
     selected_groups <- reactiveVal()
+    selected_samples_data <- reactiveVal()
     
     # Define a function to read data based on file type
     read_data <- function(file) {
@@ -106,6 +107,8 @@ mainTabServer <- function(id) {
       
       expr_data <- expression_data()
       selected_samples <- input$sample_selection
+      # update reactive variable
+      selected_samples_data(selected_samples)
       cutoff <- input$expression_cutoff
       
       # Filtering the expression data
@@ -134,7 +137,8 @@ mainTabServer <- function(id) {
       expression_data = expression_data,
       groups_data = groups_data,
       filtered_data = filtered_data,
-      selected_groups = selected_groups
+      selected_groups = selected_groups,
+      selected_samples_data = selected_samples_data
     ))
   })
 }
