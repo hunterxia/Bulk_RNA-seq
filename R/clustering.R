@@ -103,25 +103,27 @@ clusteringTabServer <- function(id, dataset) {
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
       data_sample_expr <- data[,-c(1)]
-      # Compute the correlation matrix
-      cor_matrix <- cor(data_sample_expr)
-      
+      gene_expression_z <- scale(data_sample_expr)
+      gene_expression_z[is.na(gene_expression_z)] <- 0 
+      rownames(gene_expression_z) <- data$Genes
+
       if (cluster_options == 1) {
         set.seed(40)
-        clusters <- kmeans(t(cor_matrix), centers=max_clusters, nstart=25)
+        clusters <- kmeans(gene_expression_z, centers=max_clusters, nstart=25)
         
-        annotation_df <- data.frame(samples = names(clusters[["cluster"]]), Clusters = clusters[["cluster"]])
-        
-        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-samples)
+        annotation_df <- data.frame(Genes = data$Genes, Clusters = clusters[["cluster"]])
+        rownames(annotation_df) <- data$Genes
+        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Genes)
         
         order <- order(clusters$cluster)
-        cor_matrix_ordered <- cor_matrix[order, order]
+        cor_matrix_ordered <- gene_expression_z[order, ]
         p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
                                                                cluster_rows = FALSE,
                                                                cluster_cols = FALSE,
                                                                fontsize_row = 10,
                                                                main = "K-means Clustered Matrix",
                                                                treeheight_row = 30,
+                                                               # labels_row = FALSE,
                                                                angle_col = 315,
                                                                fontsize_col = 10,
                                                                width = 10,
@@ -130,8 +132,7 @@ clusteringTabServer <- function(id, dataset) {
         return(p)
       }
       
-      
-      p <- pheatmap::pheatmap(cor_matrix, 
+      p <- pheatmap::pheatmap(gene_expression_z, 
                              cluster_rows = TRUE,
                              cluster_cols = TRUE, 
                              clustering_distance_rows = "correlation",

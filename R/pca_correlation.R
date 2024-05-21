@@ -96,6 +96,8 @@ PCACorrelationTabServer <- function(id, dataset) {
         title_hierarchical <- "Spearman's Correlation Matrix"
         cor_matrix <- cor(numerical_data, method = "spearman")
       }
+      breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
+      updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
       p <- pheatmap::pheatmap(cor_matrix, 
                cluster_rows = FALSE,
                cluster_cols = FALSE,
@@ -108,6 +110,7 @@ PCACorrelationTabServer <- function(id, dataset) {
                angle_col = 315,
                fontsize_col = 10,
                width = 10,
+               breaks = breaks,
                height = 10)
       print(p)
       return(p)
@@ -134,6 +137,8 @@ PCACorrelationTabServer <- function(id, dataset) {
       }
       
       set.seed(40)
+      breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
+      updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
       hierarchical_clustered_correction_plot <- pheatmap::pheatmap(cor_matrix, 
                                                                    cluster_rows = TRUE,
                                                                    cluster_cols = TRUE, 
@@ -145,6 +150,7 @@ PCACorrelationTabServer <- function(id, dataset) {
                                                                    angle_col = 315,
                                                                    fontsize_col = 10,
                                                                    width = 10,
+                                                                   breaks = breaks,
                                                                    height = 10)
       print(hierarchical_clustered_correction_plot)
       return(hierarchical_clustered_correction_plot)
@@ -241,7 +247,6 @@ PCACorrelationTabServer <- function(id, dataset) {
       for (idx in seq_along(col_names)) {
         col_name <- col_names[idx]
         options[col_name] = idx
-        print(options)
       }
       updateSelectInput(session, "pc_x", choices = options, selected=1)
       updateSelectInput(session, "pc_y", choices = options, selected=2)
@@ -264,7 +269,6 @@ PCACorrelationTabServer <- function(id, dataset) {
       for (idx in seq_along(col_names)) {
         col_name <- col_names[idx]
         options[col_name] = idx
-        print(options)
       }
       updateSelectInput(session, "pc_x", choices = options, selected=1)
       updateSelectInput(session, "pc_y", choices = options, selected=2)
@@ -331,7 +335,7 @@ PCACorrelationTabUI <- function(id) {
                             min = -1,
                             max = 1,
                             step = 0.05,
-                            value = c(-1, 1))
+                            value = c(0, 1))
          ),
          column(2, 
                 downloadButton(NS(id, "download_corr"), "Download Data")
