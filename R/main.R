@@ -75,10 +75,9 @@ mainTabServer <- function(id) {
       grp_data <- groups_data()
       selected_groups <- input$toggle_groups
       
-      
       if (length(selected_groups) > 0) {
         samples_in_selected_groups <- grp_data %>%
-          filter(Exp_Grp %in% selected_groups) %>%
+          dplyr::filter(Exp_Grp %in% selected_groups) %>%
           pull(HQ_samples) %>%
           unique()
         
@@ -114,7 +113,7 @@ mainTabServer <- function(id) {
       # Filtering the expression data
       filtered_expr_data <- expr_data %>%
         select(c('Symbols', 'Genes', all_of(selected_samples))) %>%
-        filter(rowSums(.[selected_samples] >= cutoff) >= input$sample_count_cutoff)
+        dplyr::filter(rowSums(.[selected_samples] >= cutoff) >= input$sample_count_cutoff)
       
       filtered_data(filtered_expr_data)
     })
