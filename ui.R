@@ -10,11 +10,11 @@
 # ui.R
 
 library(shiny)
-source("R/main.R")
-source("R/qc.R")
-source("R/pca_correlation.R")
-source("R/pairwise _comparison.R")
-source("R/clustering.R")
+source("./R/main.R")
+source("./R/qc.R")
+source("./R/pca_correlation.R")
+source("./R/pairwise _comparison.R")
+source("./R/clustering.R")
 ui <- fluidPage(
   titlePanel("RNA-seq Data Visualization App"),
   tabsetPanel(
