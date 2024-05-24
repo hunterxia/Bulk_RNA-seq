@@ -7,6 +7,9 @@ library(shinybusy)
 
 PCACorrelationTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
+    corr_download_data <- reactiveVal()
+    pca_download_data <- reactiveVal()
+    
     get_pca_data <- function(df, groups, selected_samples) {
       df <- df %>%
         select(c('Symbols', 'Genes', all_of(selected_samples)))
@@ -67,7 +70,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       } else {
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
-   
+      pca_download_data(pca_df)
       p <- pca_df %>%
         ggplot(aes(x = pca_df[, pc_x],y = pca_df[, pc_y], label = sampleLab, color = sampleLab, 
                    text = paste("Sample:", sampleLab, "<br>PC", pc_x ,":", pca_df[, pc_x], "<br>PC", pc_y  ,":", pca_df[, pc_y]))) +
@@ -98,6 +101,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       }
       breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
       updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
+      corr_download_data(cor_matrix)
       p <- pheatmap::pheatmap(cor_matrix, 
                cluster_rows = FALSE,
                cluster_cols = FALSE,
@@ -139,6 +143,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       set.seed(40)
       breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
       updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
+      corr_download_data(cor_matrix)
       hierarchical_clustered_correction_plot <- pheatmap::pheatmap(cor_matrix, 
                                                                    cluster_rows = TRUE,
                                                                    cluster_cols = TRUE, 
@@ -205,15 +210,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       },
       content = function(file) {
         req(input$pc_x, input$pc_y)
-        pc_x <- as.numeric(input$pc_x)
-        pc_y <- as.numeric(input$pc_y)
-        df <- dataset$expression_data()
-        colnames <- colnames(df)
-        df_transposed <- t(df[,3:ncol(df)])
-        pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
-        percentVar <- pca_comp$sdev^2/sum(pca_comp$sdev^2)
-        pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
-        write.csv(pca_df, file)
+        write.csv(pca_download_data(), file)
       }
     )
     
@@ -223,11 +220,7 @@ PCACorrelationTabServer <- function(id, dataset) {
         paste("correlation-", Sys.Date(), ".csv", sep="")
       },
       content = function(file) {
-        df <- dataset$expression_data()
-        numerical_data <- df[,3:ncol(df)]
-        corr_matrix <- cor(data_normalized, method = input$coefficient)
-        corr_melted <- melt(corr_matrix)
-        write.csv(corr_melted, file)
+        write.csv(corr_download_data(), file)
       }
     )
     
@@ -294,12 +287,16 @@ PCACorrelationTabUI <- function(id) {
         left: 0;
         right: 0;
       }
+      .bottom-centered {
+        display: flex;
+        align-items: center;
+      }
     "))
     ),
     titlePanel("PCA and Correlation"),
     fluidRow(
       column(6, 
-       fluidRow(
+       fluidRow(class="bottom-centered",
          column(2, 
                 selectInput(NS(id, "pc_x"), "X Axis:",
                             c("PC1" = 1), selected=1)
@@ -310,13 +307,16 @@ PCACorrelationTabUI <- function(id) {
          ),
          column(2, 
                 materialSwitch(inputId = NS(id, "pca_grouped"), label = "Show by group: ", value = FALSE, status = "primary")
-         )
+         ),
+         column(3, 
+                downloadButton(NS(id, "download_pca"), "Download Data")
+         ),
        ),
-       downloadButton(NS(id, "download_pca"), "Download Data"),
+       # downloadButton(NS(id, "download_pca"), "Download Data"),
        plotlyOutput(NS(id, "pca"), width = "100%", height = "700px")
       ),
       column(6, 
-       fluidRow(
+       fluidRow(class="bottom-centered",
          column(4, 
                 selectInput(NS(id, "coefficient"), "Coefficient:",
                             c("Pearson’s coefficient" = "pearson",

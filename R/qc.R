@@ -300,8 +300,15 @@ qcTabServer <- function(id, dataset) {
 
 qcTabUI <- function(id) {
   fluidPage(
-    # titlePanel("QC"),
-    fluidRow(
+    tags$head(
+      tags$style(HTML("
+      .bottom-centered {
+        display: flex;
+        align-items: center;
+      }
+    "))
+    ),
+    fluidRow(class = "bottom-centered",
       column(2, 
         sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
         # downloadButton(NS(id, "download_hist"), "Download Plots")
