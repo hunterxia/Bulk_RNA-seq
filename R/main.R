@@ -86,9 +86,9 @@ mainTabServer <- function(id) {
           checkboxGroupInput(ns("sample_selection"), "Select Samples", choices = samples_in_selected_groups, selected = samples_in_selected_groups)
         })
       } else {
-       
+        
         output$sample_selection_ui <- renderUI({
-         
+          
         })
       }
     })
