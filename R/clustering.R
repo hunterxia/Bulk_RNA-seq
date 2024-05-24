@@ -5,7 +5,7 @@ library(pheatmap)
 library(plotly)
 library(shinybusy)
 library(dplyr)
-library(rlang)
+#library(rlang)
 
 clusteringTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -131,7 +131,7 @@ clusteringTabServer <- function(id, dataset) {
         result_data$MaxMean_log2 <- log2(result_data$MaxMean + 1)
   
         # update selected variable genes
-        variable_genes <- filter(result_data, p_value_adj <= input$y_cutoff, MaxMean_log2 >= input$x_cutoff)
+        variable_genes <- dplyr::filter(result_data, p_value_adj <= input$y_cutoff, MaxMean_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
         
         # highlight selected variable genes in the plot
@@ -156,7 +156,7 @@ clusteringTabServer <- function(id, dataset) {
         result_data <- calculate_variable_genes_by_LFC()
         
         # update selected variable genes
-        variable_genes <- filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
+        variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
         
         # highlight selected variable genes in the plot
