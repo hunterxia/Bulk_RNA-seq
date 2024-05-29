@@ -3,7 +3,7 @@ library(hrbrthemes)
 library(ggplot2)
 library(tidyr)
 library(shinyWidgets)
-# library(colourpicker)
+library(plotly)
 
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
