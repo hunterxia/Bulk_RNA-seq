@@ -89,7 +89,6 @@ clusteringTabServer <- function(id, dataset) {
         averaged_counts <- data.frame(row.names = rownames(normalized_counts))
         
         # Loop through each unique experimental group in the sample information
-        browser()
         for(Group in selected_groups) {
           # Find the samples belonging to this experimental group
           samples_in_grp <- sample_info$Condition[sample_info$EXPERIMENTAL_GROUP == Group]
@@ -184,7 +183,6 @@ clusteringTabServer <- function(id, dataset) {
     output$number_of_genes <- renderText(paste0("Number of Selescted Genes: ", nrow(selected_variable_genes())))
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
-      browser()
       data_sample_expr <- data[,-c(1)]
       gene_expression_z <- scale(data_sample_expr)
       gene_expression_z[is.na(gene_expression_z)] <- 0 
