@@ -60,7 +60,7 @@ mainTabServer <- function(id) {
       groups_data(grp_data)
       
       output$toggle_groups_ui <- renderUI({
-        checkboxGroupInput(ns("toggle_groups"), "Toggle Groups", choices = unique(grp_data[['Exp_Grp']]), selected = NULL)
+        checkboxGroupInput(ns("toggle_groups"), "Toggle Groups", choices = unique(grp_data[['Group']]), selected = NULL)
       })
     })
     
@@ -77,8 +77,8 @@ mainTabServer <- function(id) {
       
       if (length(selected_groups) > 0) {
         samples_in_selected_groups <- grp_data %>%
-          dplyr::filter(Exp_Grp %in% selected_groups) %>%
-          pull(HQ_samples) %>%
+          dplyr::filter(Group %in% selected_groups) %>%
+          pull(Sample) %>%
           unique()
         
         output$sample_selection_ui <- renderUI({
@@ -112,7 +112,7 @@ mainTabServer <- function(id) {
       
       # Filtering the expression data
       filtered_expr_data <- expr_data %>%
-        select(c('Symbols', 'Genes', all_of(selected_samples))) %>%
+        select(c('Symbol', 'Gene_Symbol', all_of(selected_samples))) %>%
         dplyr::filter(rowSums(.[selected_samples] >= cutoff) >= input$sample_count_cutoff)
       
       filtered_data(filtered_expr_data)

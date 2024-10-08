@@ -13,10 +13,10 @@ qcTabServer <- function(id, dataset) {
       selected_samples <- dataset$selected_samples_data()
       
       df <- df %>%
-        select(c('Symbols', 'Genes', all_of(selected_samples)))
+        select(c('Symbol', 'Gene_Symbol', all_of(selected_samples)))
       
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
+      colnames(df)[1] <- "Symbol"
+      colnames(df)[2] <- "Gene_Symbol"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -29,7 +29,7 @@ qcTabServer <- function(id, dataset) {
           left_join(groups, by = "Samples") 
         
         df_long_grouped_sum <- df_long_grouped %>%
-          group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
+          group_by(Gene_Symbol, Symbol, EXPERIMENTAL_GROUP) %>%
           summarize(Values = sum(Values), .groups = "drop")
         
         df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
@@ -90,8 +90,8 @@ qcTabServer <- function(id, dataset) {
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
       
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
+      colnames(df)[1] <- "Symbol"
+      colnames(df)[2] <- "Gene_Symbol"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -103,7 +103,7 @@ qcTabServer <- function(id, dataset) {
           left_join(groups, by = "Samples") 
         
         df_long_grouped_sum <- df_long_grouped %>%
-          group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
+          group_by(Gene_Symbol, Symbol, EXPERIMENTAL_GROUP) %>%
           summarize(Values = sum(Values), .groups = "drop")
         
         df_grouped <- pivot_wider(df_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
@@ -249,10 +249,10 @@ qcTabServer <- function(id, dataset) {
       selected_samples <- dataset$selected_samples_data()
       groups <- dataset$groups_data()
       df <- df %>%
-        select(c('Symbols', 'Genes', all_of(selected_samples)))
+        select(c('Symbol', 'Gene_Symbol', all_of(selected_samples)))
       
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
+      colnames(df)[1] <- "Symbol"
+      colnames(df)[2] <- "Gene_Symbol"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -265,8 +265,8 @@ qcTabServer <- function(id, dataset) {
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
       
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
+      colnames(df)[1] <- "Gene_Symbol"
+      colnames(df)[2] <- "Gene_Symbol"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       

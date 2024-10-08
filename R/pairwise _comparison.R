@@ -74,8 +74,8 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
   }
   
   results <- data.frame(
-    Symbols = exp_data$Symbols,
-    Genes = exp_data$Genes,
+    Symbols = exp_data$Symbol,
+    Genes = exp_data$Gene_Symbol,
     Log2FoldChange = log2_fold_changes,
     PValue = p_values,
     Group1Mean = rowMeans(exp_data[, group1_samples], na.rm = TRUE),
@@ -180,8 +180,8 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       grp_data <- groups_data()
       
       # Map group selections to sample names
-      group1_samples <- grp_data$HQ_samples[grp_data$Exp_Grp == input$select_group1]
-      group2_samples <- grp_data$HQ_samples[grp_data$Exp_Grp == input$select_group2]
+      group1_samples <- grp_data$Sample[grp_data$Group == input$select_group1]
+      group2_samples <- grp_data$Sample[grp_data$Group == input$select_group2]
       
       # Debug statements
       print(paste("Group 1 Samples:", toString(group1_samples)))

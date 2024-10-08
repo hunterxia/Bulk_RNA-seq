@@ -30,15 +30,15 @@ clusteringTabServer <- function(id, dataset) {
       groups <- dataset$groups_data()
       
       # remove this column for simplicity 
-      gene_data <- df %>% select(-Symbols)
-      colnames(gene_data)[1] <- "Genes"
+      gene_data <- df %>% select(-Symbol)
+      colnames(gene_data)[1] <- "Gene_Symbol"
       colnames(groups)[1] <- "Condition"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
       
       gene_data_long <- gene_data %>%
         pivot_longer(
-          cols = -Genes,  # Exclude Gene_Symbol from the melting process
+          cols = -Gene_Symbol,  # Exclude Gene_Symbol from the melting process
           names_to = "Condition",  # This will contain the sample/condition names
           values_to = "Expression"  # This will contain the expression values
         )
@@ -48,16 +48,16 @@ clusteringTabServer <- function(id, dataset) {
         left_join(groups, by = "Condition")
       
       group_means <- gene_data_long %>%
-        group_by(Genes, EXPERIMENTAL_GROUP) %>%
+        group_by(Gene_Symbol, EXPERIMENTAL_GROUP) %>%
         summarise(MeanExpression = mean(Expression, na.rm = TRUE), .groups = 'drop')
       
       max_group_means <- group_means %>%
-        group_by(Genes) %>%
+        group_by(Gene_Symbol) %>%
         summarise(MaxMean = max(MeanExpression))
       
       
       anova_results <- gene_data_long %>%
-        group_by(Genes) %>%
+        group_by(Gene_Symbol) %>%
         do({
           model <- lm(Expression ~ EXPERIMENTAL_GROUP, data = .)
           anova_model <- anova(model)
@@ -67,7 +67,7 @@ clusteringTabServer <- function(id, dataset) {
       
       anova_results$p_value_adj <- p.adjust(anova_results$p_value, method = "BH")
       anova_results %>%
-        left_join(max_group_means, by = "Genes")
+        left_join(max_group_means, by = "Gene_Symbol")
       
     }
     
@@ -79,8 +79,8 @@ clusteringTabServer <- function(id, dataset) {
       selected_groups <- dataset$selected_groups()
 
       # remove this column for simplicity 
-      gene_data <- gene_data %>% select(-Symbols)
-      colnames(gene_data)[1] <- "Genes"
+      gene_data <- gene_data %>% select(-Symbol)
+      colnames(gene_data)[1] <- "Gene_Symbol"
       colnames(groups)[1] <- "Condition"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -89,9 +89,10 @@ clusteringTabServer <- function(id, dataset) {
         averaged_counts <- data.frame(row.names = rownames(normalized_counts))
         
         # Loop through each unique experimental group in the sample information
-        for(exp_grp in selected_groups) {
+        browser()
+        for(Group in selected_groups) {
           # Find the samples belonging to this experimental group
-          samples_in_grp <- sample_info$Condition[sample_info$EXPERIMENTAL_GROUP == exp_grp]
+          samples_in_grp <- sample_info$Condition[sample_info$EXPERIMENTAL_GROUP == Group]
           
           # Subset the normalized counts matrix to only these samples
           counts_subset <- normalized_counts[, colnames(normalized_counts) %in% samples_in_grp, drop = FALSE]
@@ -116,7 +117,7 @@ clusteringTabServer <- function(id, dataset) {
       averaged_counts_result <- averaged_counts_result %>%
         mutate(LFC = log2(!!sym(input$LFC_group_1) + 1e-4) - log2(!!sym(input$LFC_group_2) + 1e-4))
       
-      averaged_counts_result$Genes <- gene_data$Genes
+      averaged_counts_result$Gene_Symbol <- gene_data$Gene_Symbol
       
       averaged_counts_result$LFC <- abs(averaged_counts_result$LFC)
       
@@ -138,7 +139,7 @@ clusteringTabServer <- function(id, dataset) {
         result_data$highlight <- ifelse(result_data$p_value_adj <= input$y_cutoff & result_data$MaxMean_log2 >= input$x_cutoff, "Selected", "Unselected")
         
         p <- result_data %>%
-          ggplot(aes(x = MaxMean_log2, y = p_value_adj, label = Genes, color = highlight, text = paste("Genes:", Genes, "<br>x:", MaxMean, "<br>y:", p_value))) + 
+          ggplot(aes(x = MaxMean_log2, y = p_value_adj, label = Gene_Symbol, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>x:", MaxMean, "<br>y:", p_value))) + 
           geom_point(size=3) +
           scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
           labs(x=paste0("Max Mean (log2 + 1)"),
@@ -162,7 +163,7 @@ clusteringTabServer <- function(id, dataset) {
         # highlight selected variable genes in the plot
         result_data$highlight <- ifelse(result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff, "Selected", "Unselected")
         p <- result_data %>%
-          ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Genes, "<br>max mean by log2+1:", max_mean_log2, "<br>LFC:", LFC))) + 
+          ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>max mean by log2+1:", max_mean_log2, "<br>LFC:", LFC))) + 
           geom_point(size=3) +
           scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
           labs(x=paste0("Max Mean (log2 + 1)"),
@@ -183,18 +184,19 @@ clusteringTabServer <- function(id, dataset) {
     output$number_of_genes <- renderText(paste0("Number of Selescted Genes: ", nrow(selected_variable_genes())))
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
+      browser()
       data_sample_expr <- data[,-c(1)]
       gene_expression_z <- scale(data_sample_expr)
       gene_expression_z[is.na(gene_expression_z)] <- 0 
-      rownames(gene_expression_z) <- data$Genes
-
+      rownames(gene_expression_z) <- data$Gene_Symbol
+  
       if (cluster_options == 1) {
         set.seed(40)
         clusters <- kmeans(gene_expression_z, centers=max_clusters, nstart=25)
-        
-        annotation_df <- data.frame(Genes = data$Genes, Clusters = clusters[["cluster"]])
-        rownames(annotation_df) <- data$Genes
-        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Genes)
+
+        annotation_df <- data.frame(Gene_Symbol = data$Gene_Symbol, Clusters = clusters[["cluster"]])
+        rownames(annotation_df) <- data$Gene_Symbol
+        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Gene_Symbol)
         clusters_download_data(annotation_df)
         order <- order(clusters$cluster)
         cor_matrix_ordered <- gene_expression_z[order, ]
@@ -232,11 +234,11 @@ clusteringTabServer <- function(id, dataset) {
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       df <- dataset$filtered_data()
-      gene_data <- df %>% select(-Symbols)
-      variable_genes <- variable_genes %>% select(Genes)
+      gene_data <- df %>% select(-Symbol)
+      variable_genes <- variable_genes %>% select(Gene_Symbol)
 
       heatmap_df <- gene_data %>%
-        inner_join(variable_genes, by = "Genes")
+        inner_join(variable_genes, by = "Gene_Symbol")
       p <- create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
       print(p)
       return(p)
