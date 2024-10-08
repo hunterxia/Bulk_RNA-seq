@@ -178,7 +178,7 @@ qcTabServer <- function(id, dataset) {
       
       # Convert the named list to a data frame with a row for each sample
       lengths_df <- data.frame(Samples = names(column_lengths), Gene_Count = column_lengths)
-      
+
       if (input$grouped) {
         lengths_df_grouped <- lengths_df %>%
           left_join(groups, by = "Samples") 

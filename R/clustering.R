@@ -183,17 +183,17 @@ clusteringTabServer <- function(id, dataset) {
     output$number_of_genes <- renderText(paste0("Number of Selescted Genes: ", nrow(selected_variable_genes())))
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
-      data_sample_expr <- data[,-c(1)]
+      data_sample_expr <- data[,-c(1, 2)]
       gene_expression_z <- scale(data_sample_expr)
       gene_expression_z[is.na(gene_expression_z)] <- 0 
-      rownames(gene_expression_z) <- data$Gene_Symbol
-  
+      rownames(gene_expression_z) <- data$Symbol
+
       if (cluster_options == 1) {
         set.seed(40)
         clusters <- kmeans(gene_expression_z, centers=max_clusters, nstart=25)
 
         annotation_df <- data.frame(Gene_Symbol = data$Gene_Symbol, Clusters = clusters[["cluster"]])
-        rownames(annotation_df) <- data$Gene_Symbol
+        rownames(annotation_df) <- data$Symbol
         annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Gene_Symbol)
         clusters_download_data(annotation_df)
         order <- order(clusters$cluster)
@@ -232,7 +232,8 @@ clusteringTabServer <- function(id, dataset) {
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       df <- dataset$filtered_data()
-      gene_data <- df %>% select(-Symbol)
+      # gene_data <- df %>% select(-Symbol)
+      gene_data <- df
       variable_genes <- variable_genes %>% select(Gene_Symbol)
 
       heatmap_df <- gene_data %>%

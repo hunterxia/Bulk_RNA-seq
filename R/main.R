@@ -96,6 +96,8 @@ mainTabServer <- function(id) {
     observeEvent(input$expression_input, {
       req(input$expression_input)
       data <- read_data(input$expression_input)
+      # convert third to last col to numeric
+      data[, 3:ncol(data)] <- lapply(data[, 3:ncol(data)], as.numeric)
       names(data) <- gsub(" ", "_", names(data))
       expression_data(data)
     })
@@ -103,7 +105,6 @@ mainTabServer <- function(id) {
     # Apply filters based on user inputs
     observeEvent(input$apply_filters, {
       req(expression_data(), input$sample_selection, input$expression_cutoff)
-      
       expr_data <- expression_data()
       selected_samples <- input$sample_selection
       # update reactive variable
