@@ -1,0 +1,13 @@
+Sample,Group,Color
+C8_Y_F6_MACS,young_ctrl,#51B6E8
+C8_Y_F2_MACS,young_ctrl,#51B6E8
+C8_Y_F1_MACS,young_ctrl,#51B6E8
+CD11cC8_Y_F3_MACS,young_disease,#F558A1
+CD11cC8_Y_F4_MACS,young_disease,#F558A1
+CD11cC8_Y_F5_MACS,young_disease,#F558A1
+C8_O_F7_MACS,old_ctrl,#27F0BA
+C8_O_F4_MACS,old_ctrl,#27F0BA
+C8_O_F2_MACS,old_ctrl,#27F0BA
+CD11cC8_O_F1_MACS,old_disease,#F7984A
+CD11cC8_O_F4_MACS,old_disease,#F7984A
+CD11cC8_O_F3_MACS,old_disease,#F7984A

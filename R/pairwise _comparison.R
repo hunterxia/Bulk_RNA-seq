@@ -3,6 +3,7 @@ library(ggplot2)
 library(plotly)
 library(DT)
 library(dplyr)
+library(DESeq2)
 
 PairwiseComparisonTabUI <- function(id) {
   ns <- NS(id)
@@ -15,7 +16,8 @@ PairwiseComparisonTabUI <- function(id) {
         selectInput(ns("select_group2"), "Select Group 2", choices = NULL),
         selectInput(ns("test_type"), "Select Test Type",
                     choices = c("Paired t-test" = "paired",
-                                "Unpaired t-test" = "unpaired")),
+                                "Unpaired t-test" = "unpaired",
+                                "Deseq" = "deseq")),
         numericInput(ns("fc_cutoff"), "Fold Change Cutoff", value = 1),
         numericInput(ns("pvalue_cutoff"), "P-value Cutoff", value = 0.05),
         checkboxInput(ns("adjust_pvalue"), "Use Adjusted P-Value", value = FALSE),
@@ -40,28 +42,69 @@ PairwiseComparisonTabUI <- function(id) {
 }
 
 perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_type, fc_cutoff, pvalue_cutoff, adjust_pvalue) {
-  # Filter expression data to include only the relevant samples
+  if (test_type == "deseq") {
+    exp_data_filtered <- exp_data[, c(group1_samples, group2_samples)]
+    exp_data_filtered <- round(exp_data_filtered)
+
+    condition <- factor(c(rep("group1", length(group1_samples)), rep("group2", length(group2_samples))))
+
+    dds <- DESeqDataSetFromMatrix(countData = exp_data_filtered,
+                                   colData = data.frame(condition = condition),
+                                   design = ~ condition)
+
+    dds <- DESeq(dds)
+    res <- results(dds)
+
+    log2_fold_changes <- res$log2FoldChange
+    p_values <- res$pvalue
+
+    if (adjust_pvalue) {
+      adj_pvalues <- p.adjust(p_values, method = "BH")
+    } else {
+      adj_pvalues <- p_values
+    }
+
+    results <- data.frame(
+      Symbols = exp_data$Symbol,
+      Gene_Symbol = exp_data$Gene_Symbol,
+      baseMean= res$baseMean,
+      Group1Mean = rowMeans(exp_data_filtered[, group1_samples], na.rm = TRUE),
+      Group2Mean = rowMeans(exp_data_filtered[, group2_samples], na.rm = TRUE),
+      Log2FoldChange = log2_fold_changes,
+      lfcSE = res$lfcSE,
+      stat = res$stat,
+      PValue = res$pvalue,
+      padj= res$padj,
+      Significant = (abs(log2_fold_changes) >= log2(fc_cutoff)) & (adj_pvalues <= pvalue_cutoff),
+      stringsAsFactors = FALSE
+    )
+
+    return (results)
+
+  }
+  else {
+    # Filter expression data to include only the relevant samples
   group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE]
   group2_data <- exp_data[, colnames(exp_data) %in% group2_samples, drop = FALSE]
-  
+
   # Add pseudocount to avoid log transformation issues
   pseudocount <- 1
   group1_data <- group1_data + pseudocount
   group2_data <- group2_data + pseudocount
-  
+
   # Ensure the data is numeric
   group1_data <- data.frame(lapply(group1_data, as.numeric))
   group2_data <- data.frame(lapply(group2_data, as.numeric))
-  
+
   # Calculate log2 fold changes
   log2_fold_changes <- log2(rowMeans(group2_data, na.rm = TRUE)) - log2(rowMeans(group1_data, na.rm = TRUE))
-  
+
   # Calculate p-values for each gene
   p_values <- vector("numeric", length = nrow(exp_data))
   for (i in 1:nrow(exp_data)) {
     gene_data1 <- group1_data[i, , drop = FALSE]  # Ensure it remains as a dataframe
     gene_data2 <- group2_data[i, , drop = FALSE]  # Ensure it remains as a dataframe
-    
+
     if (test_type == "paired") {
       p_values[i] <- t.test(as.numeric(gene_data1), as.numeric(gene_data2), paired = TRUE)$p.value
     } else if (test_type == "unpaired") {
@@ -72,7 +115,7 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
       p_values[i] <- wilcox.test(as.numeric(gene_data1), as.numeric(gene_data2), paired = TRUE, exact = FALSE)$p.value
     }
   }
-  
+
   results <- data.frame(
     Symbols = exp_data$Symbol,
     Genes = exp_data$Gene_Symbol,
@@ -82,18 +125,19 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
     Group2Mean = rowMeans(exp_data[, group2_samples], na.rm = TRUE),
     stringsAsFactors = FALSE
   )
-  
+
   # Adjust p-values if requested
   if (adjust_pvalue) {
     results$AdjPValue <- p.adjust(results$PValue, method = "BH")
   } else {
     results$AdjPValue <- results$PValue
   }
-  
+
   # Mark significant genes
   results$Significant <- (abs(results$Log2FoldChange) >= log2(fc_cutoff)) & (results$AdjPValue <= pvalue_cutoff)
-  
+
   return(results)
+  }
 }
 
 # Volcano plot generation function
