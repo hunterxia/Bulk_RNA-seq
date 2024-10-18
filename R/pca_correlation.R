@@ -41,7 +41,7 @@ PCACorrelationTabServer <- function(id, dataset) {
     
     create_pca_plot <- function(){
       req(input$pc_x, input$pc_y, dataset$expression_data(), dataset$groups_data(), dataset$selected_samples_data())
-      df <- dataset$expression_data()
+      df <- dataset$filtered_data()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
       
@@ -52,12 +52,12 @@ PCACorrelationTabServer <- function(id, dataset) {
       
       pc_x <- as.numeric(input$pc_x)
       pc_y <- as.numeric(input$pc_y)
-      # browser()
+      
       df_transposed <- get_pca_data(df, groups, selected_samples)
       pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
       percentVar <- pca_comp$sdev^2/sum(pca_comp$sdev^2)
       pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
-      
+
       if (input$pca_grouped) {
         group_color <- groups %>%
           group_by(Color) %>%
@@ -65,10 +65,15 @@ PCACorrelationTabServer <- function(id, dataset) {
         pca_df <- pca_df %>%
           left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP")) 
         colors <- unique(pca_df$Color)
-        names(colors) <- unique(pca_df$Var2)
+        names(colors) <- unique(pca_df$EXPERIMENTAL_GROUP)
         scale_color <- scale_color_manual(values = colors)
       } else {
-        scale_color <- scale_color_viridis(discrete = TRUE)
+        pca_df <- pca_df %>%
+          left_join(groups, by = c("sampleLab" = "Samples")) 
+        colors <- pca_df$Color
+        names(colors) <- pca_df$sampleLab
+        scale_color <- scale_color_manual(values = colors)
+        #scale_color <- scale_color_viridis(discrete = TRUE)
       }
       pca_download_data(pca_df)
       p <- pca_df %>%
@@ -90,7 +95,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       ggplotly(p, tooltip = "text")
     }
     
-    create_correlation_plot <- function(data, Pearson_or_Spearman){
+    create_correlation_plot <- function(data, groups, Pearson_or_Spearman){
       numerical_data <- data[,3:ncol(data)]
       if(Pearson_or_Spearman == "pearson") {
         title_hierarchical <- "Pearson's Correlation Matrix"
@@ -99,10 +104,30 @@ PCACorrelationTabServer <- function(id, dataset) {
         title_hierarchical <- "Spearman's Correlation Matrix"
         cor_matrix <- cor(numerical_data, method = "spearman")
       }
-      breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
-      updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
+      breaks <- seq(0, 1, length.out = 100)
+
+      if (input$pca_grouped) {
+        annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
+        annotation_df <- unique(annotation_df);
+        annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
+        rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
+        annotation_colors <- list(
+          Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
+        )
+      } else {
+        annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
+        annotation_row <- data.frame(Samples = annotation_df$Samples)
+        rownames(annotation_row) <- annotation_df$Samples
+        annotation_colors <- list(
+          Samples = setNames(annotation_df$Color, annotation_df$Samples)
+        )
+      }
+      
       corr_download_data(cor_matrix)
       p <- pheatmap::pheatmap(cor_matrix, 
+               annotation_row = annotation_row,
+               annotation_colors = annotation_colors,
+               annotation_legend = FALSE,
                cluster_rows = FALSE,
                cluster_cols = FALSE,
                clustering_distance_rows = "euclidean",
@@ -121,7 +146,7 @@ PCACorrelationTabServer <- function(id, dataset) {
     }
     
     
-    create_clustering_plot <- function(data, Pearson_or_Spearman) {
+    create_clustering_plot <- function(data, groups, Pearson_or_Spearman) {
       data_sample_expr <- data[,-c(1,2)]
 
       if(Pearson_or_Spearman == "pearson") {
@@ -141,12 +166,32 @@ PCACorrelationTabServer <- function(id, dataset) {
       }
       
       set.seed(40)
-      breaks <- seq(input$scale[1], input$scale[2], length.out = 100)
-      updateSliderInput(session, "scale", min = round(min(cor_matrix), 2), max = round(max(cor_matrix),2))
+      breaks <- seq(0, 1, length.out = 100)
+      
+      if (input$pca_grouped) {
+        annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
+        annotation_df <- unique(annotation_df);
+        annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
+        rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
+        annotation_colors <- list(
+          Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
+        )
+      } else {
+        annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
+        annotation_row <- data.frame(Samples = annotation_df$Samples)
+        rownames(annotation_row) <- annotation_df$Samples
+        annotation_colors <- list(
+          Samples = setNames(annotation_df$Color, annotation_df$Samples)
+        )
+      }
+      
       corr_download_data(cor_matrix)
       hierarchical_clustered_correction_plot <- pheatmap::pheatmap(cor_matrix, 
                                                                    cluster_rows = TRUE,
                                                                    cluster_cols = TRUE, 
+                                                                   annotation_row = annotation_row,
+                                                                   annotation_colors = annotation_colors,
+                                                                   annotation_legend = FALSE,
                                                                    clustering_distance_rows = "correlation",
                                                                    clustering_distance_cols = "correlation",
                                                                    fontsize_row = 10,
@@ -175,7 +220,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       colnames(gene_data)[2] <- "Symbols"
       colnames(groups)[1] <- "Samples"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
-      
+
       # show by grouped
       if (input$pca_grouped) {
         gene_data_long <- pivot_longer(gene_data, cols = -names(gene_data)[1:2], names_to = "Samples", values_to = "Values")
@@ -193,9 +238,9 @@ PCACorrelationTabServer <- function(id, dataset) {
       }
       
       if (input$clustered) {
-        plot <- create_clustering_plot(data, input$coefficient)
+        plot <- create_clustering_plot(data, groups, input$coefficient)
       } else {
-        plot <- create_correlation_plot(data, input$coefficient)
+        plot <- create_correlation_plot(data, groups, input$coefficient)
       }
       
       print(plot)
@@ -322,20 +367,12 @@ PCACorrelationTabUI <- function(id) {
                             c("Pearson’s coefficient" = "pearson",
                               " Spearman’s rank coefficient" = "spearman"))
          ),
-         column(2, 
+         column(3, 
                 # selectInput(NS(id, "by"), "By:",
                 #             c("None" = 1,
                 #               "Group" = 2,
                 #               "Cluster" = 3), selected=1)
-                materialSwitch(inputId = NS(id, "clustered"), label = "Show by cluster: ", value = FALSE, status = "primary")
-         ),
-         column(4, 
-                sliderInput(NS(id, "scale"),
-                            "Scale:",
-                            min = -1,
-                            max = 1,
-                            step = 0.05,
-                            value = c(0, 1))
+                materialSwitch(inputId = NS(id, "clustered"), label = "Hierarchical Clustering: ", value = FALSE, status = "primary")
          ),
          column(2, 
                 downloadButton(NS(id, "download_corr"), "Download Data")
