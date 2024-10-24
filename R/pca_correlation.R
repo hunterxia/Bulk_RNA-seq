@@ -60,8 +60,7 @@ PCACorrelationTabServer <- function(id, dataset) {
 
       if (input$pca_grouped) {
         group_color <- groups %>%
-          group_by(Color) %>%
-          slice(1) 
+          group_by(Color)
         pca_df <- pca_df %>%
           left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP")) 
         colors <- unique(pca_df$Color)

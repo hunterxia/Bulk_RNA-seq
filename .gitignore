@@ -3,3 +3,4 @@
 .RData
 .Ruserdata
 www
+packrat/lib*/
