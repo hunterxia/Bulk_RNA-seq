@@ -16,7 +16,7 @@ mainTabUI <- function(id) {
       uiOutput(ns("toggle_groups_ui")), 
       uiOutput(ns("sample_selection_ui")),  
       
-      numericInput(ns("expression_cutoff"), "Expression Level Cutoff", value = 1),
+      numericInput(ns("expression_cutoff"), "Expression Level Cutoff", value = 0),
       numericInput(ns("sample_count_cutoff"), "Minimum Sample Count", value = 1, min = 1),
       
       actionButton(ns("apply_filters"), "Apply Filters"),
@@ -29,18 +29,16 @@ mainTabUI <- function(id) {
   )
 }
 
-
-
 mainTabServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
     # Reactive values to store data
-    expression_data <- reactiveVal()
-    groups_data <- reactiveVal()
-    filtered_data <- reactiveVal()  
-    selected_groups <- reactiveVal()
-    selected_samples_data <- reactiveVal()
+    expression_data <- reactiveVal()       # Stores the uploaded expression data
+    groups_data <- reactiveVal()           # Stores the uploaded groups data
+    filtered_data <- reactiveVal()         # Stores the filtered expression data
+    selected_groups <- reactiveVal()       # Stores the selected groups
+    selected_samples_data <- reactiveVal() # Stores the selected samples
     
     # Define a function to read data based on file type
     read_data <- function(file) {
@@ -57,73 +55,88 @@ mainTabServer <- function(id) {
     observeEvent(input$groups_input, {
       req(input$groups_input)
       grp_data <- read_data(input$groups_input)
-      groups_data(grp_data)
+      groups_data(grp_data)  # Store group data in reactive variable
       
-      output$toggle_groups_ui <- renderUI({
-        checkboxGroupInput(ns("toggle_groups"), "Toggle Groups", choices = unique(grp_data[['Group']]), selected = NULL)
-      })
-    })
-    
-    # Dynamic sample selection based on selected groups
-    observe({
-      req(input$toggle_groups)
-      selected_groups(input$toggle_groups)
-    })
-    
-    observe({
-      req(groups_data())
-      grp_data <- groups_data()
-      selected_groups <- input$toggle_groups
-      
-      if (length(selected_groups) > 0) {
-        samples_in_selected_groups <- grp_data %>%
-          dplyr::filter(Group %in% selected_groups) %>%
-          pull(Sample) %>%
-          unique()
+      # Dynamically render the groups and samples with indentation
+      output$sample_selection_ui <- renderUI({
+        req(groups_data())
+        grp_data <- groups_data()
         
-        output$sample_selection_ui <- renderUI({
-          checkboxGroupInput(ns("sample_selection"), "Select Samples", choices = samples_in_selected_groups, selected = samples_in_selected_groups)
-        })
-      } else {
-        
-        output$sample_selection_ui <- renderUI({
+        tagList(
+          tags$h4("Toggle Groups"),  # Add a title for the toggle groups section
           
-        })
-      }
+          lapply(unique(grp_data[['Group']]), function(group) {
+            samples_in_group <- grp_data %>%
+              dplyr::filter(Group == group) %>%
+              pull(Sample)
+            
+            tagList(
+              checkboxInput(ns(paste0("group_", group)), group, value = FALSE),  # Group checkbox
+              conditionalPanel(
+                condition = sprintf("input['%s'] == true", ns(paste0("group_", group))),
+                tagList(
+                  lapply(samples_in_group, function(sample) {
+                    div(style = "margin-left: 20px;",  # Indent the samples
+                        checkboxInput(ns(paste0("sample_", sample)), sample, value = TRUE)
+                    )
+                  })
+                )
+              )
+            )
+          })
+        )
+      })
     })
     
     # Reading and storing expression data
     observeEvent(input$expression_input, {
       req(input$expression_input)
       data <- read_data(input$expression_input)
-      # convert third to last col to numeric
+      # Convert the numeric columns (third to last) to numeric types
       data[, 3:ncol(data)] <- lapply(data[, 3:ncol(data)], as.numeric)
-      names(data) <- gsub(" ", "_", names(data))
-      expression_data(data)
+      names(data) <- gsub(" ", "_", names(data))  # Clean column names
+      expression_data(data)  # Store expression data in reactive variable
     })
     
-    # Apply filters based on user inputs
+    # Apply filters to expression data based on selected samples and cutoff values
     observeEvent(input$apply_filters, {
-      req(expression_data(), input$sample_selection, input$expression_cutoff)
+      req(expression_data(), input$expression_cutoff)
       expr_data <- expression_data()
-      selected_samples <- input$sample_selection
-      # update reactive variable
+      
+      # Collect selected samples from the checkbox inputs
+      selected_samples <- groups_data() %>%
+        pull(Sample) %>%
+        Filter(function(sample) input[[paste0("sample_", sample)]], .)
+      
+      if (length(selected_samples) == 0) {
+        showNotification("No samples selected. Please select samples to apply filters.", type = "error")
+        return(NULL)
+      }
+      
+      # Update selected samples data reactive value
       selected_samples_data(selected_samples)
       cutoff <- input$expression_cutoff
       
-      # Filtering the expression data
+      # Filtering the expression data based on selected samples and cutoff
       filtered_expr_data <- expr_data %>%
         select(c('Symbol', 'Gene_Symbol', all_of(selected_samples))) %>%
         dplyr::filter(rowSums(.[selected_samples] >= cutoff) >= input$sample_count_cutoff)
       
-      filtered_data(filtered_expr_data)
+      if (nrow(filtered_expr_data) == 0) {
+        showNotification("No data matches the filtering criteria. Please adjust your filters.", type = "error")
+        return(NULL)
+      }
+      
+      filtered_data(filtered_expr_data)  # Store filtered data in reactive variable
     })
     
     # Render the filtered data table
     output$resultsTable <- renderDT({
+      req(filtered_data())
       filtered_data()
     }, options = list(pageLength = 25))
     
+    # Download handler for the filtered data
     output$download_filtered_data <- downloadHandler(
       filename = function() { "filtered_data.csv" },
       content = function(file) {
@@ -132,7 +145,7 @@ mainTabServer <- function(id) {
       }
     )
     
-    # Return a list of data for other modules to access
+    # Return a list of reactive values for other components to access
     return(list(
       expression_data = expression_data,
       groups_data = groups_data,
