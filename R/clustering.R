@@ -47,13 +47,13 @@ clusteringTabServer <- function(id, dataset) {
       gene_data_long <- gene_data_long %>%
         left_join(groups, by = "Condition")
       
-      group_means <- gene_data_long %>%
+      group_max <- gene_data_long %>%
         group_by(Gene_Symbol, EXPERIMENTAL_GROUP) %>%
-        summarise(MeanExpression = mean(Expression, na.rm = TRUE), .groups = 'drop')
+        summarise(MaxExpression = max(Expression, na.rm = TRUE), .groups = 'drop')
       
-      max_group_means <- group_means %>%
+      max_group_expression <- group_max %>%
         group_by(Gene_Symbol) %>%
-        summarise(MaxMean = max(MeanExpression))
+        summarise(Max = max(MaxExpression))
       
       
       anova_results <- gene_data_long %>%
@@ -66,8 +66,9 @@ clusteringTabServer <- function(id, dataset) {
         ungroup()
       
       anova_results$p_value_adj <- p.adjust(anova_results$p_value, method = "BH")
+      anova_results$p_value_log10 <- -log10(anova_results$p_value)
       anova_results %>%
-        left_join(max_group_means, by = "Gene_Symbol")
+        left_join(max_group_expression, by = "Gene_Symbol")
       
     }
     
@@ -123,26 +124,27 @@ clusteringTabServer <- function(id, dataset) {
       averaged_counts_result
     }
     
-    output$variable_genes_plot <- renderPlot({
+    output$variable_genes_plot <- renderPlotly({
       if (input$y_axis_var == 1) {
         req(samples_anova_results())
         result_data <- samples_anova_results()
   
-        result_data$MaxMean_log2 <- log2(result_data$MaxMean + 1)
+        result_data$Max_log2 <- log2(result_data$Max + 1)
   
         # update selected variable genes
-        variable_genes <- dplyr::filter(result_data, p_value_adj <= input$y_cutoff, MaxMean_log2 >= input$x_cutoff)
+        variable_genes <- dplyr::filter(result_data, p_value_log10 <= input$y_cutoff, Max_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
         
         # highlight selected variable genes in the plot
-        result_data$highlight <- ifelse(result_data$p_value_adj <= input$y_cutoff & result_data$MaxMean_log2 >= input$x_cutoff, "Selected", "Unselected")
+        result_data$highlight <- ifelse(result_data$p_value_log10 <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
         
         p <- result_data %>%
-          ggplot(aes(x = MaxMean_log2, y = p_value_adj, label = Gene_Symbol, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>x:", MaxMean, "<br>y:", p_value))) + 
+          ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
+                     text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>P Value(-log10):", p_value_log10))) + 
           geom_point(size=3) +
           scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-          labs(x=paste0("Max Mean (log2 + 1)"),
-               y=paste0("P Values Adjusted")) +
+          labs(x=paste0("Max Group Expression (log2 + 1)"),
+               y=paste0("P Values (-log10)")) +
           theme_minimal() + 
           theme(legend.position = "right") +
           theme_linedraw(base_size=16) +
@@ -151,7 +153,6 @@ clusteringTabServer <- function(id, dataset) {
                 legend.title = element_blank(),
                 legend.text = element_text(size = 10),
                 legend.position = "right")
-        return(p)
       } else {
         result_data <- calculate_variable_genes_by_LFC()
         
@@ -175,16 +176,22 @@ clusteringTabServer <- function(id, dataset) {
                 legend.title = element_blank(),
                 legend.text = element_text(size = 10),
                 legend.position = "right")
-        return(p)
+
       }
-      # ggplotly(p, tooltip = "text")
+      ggplotly(p, tooltip = "text")
     })
     
     output$number_of_genes <- renderText(paste0("Number of Selescted Genes: ", nrow(selected_variable_genes())))
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
       data_sample_expr <- data[,-c(1, 2)]
-      gene_expression_z <- scale(data_sample_expr)
+      #gene_expression_z <- scale(data_sample_expr)
+      
+      min_max_normalize <- function(x) {
+        (x - min(x)) / (max(x) - min(x))
+      }
+
+      gene_expression_z <- t(apply(data_sample_expr, 1, min_max_normalize))
       gene_expression_z[is.na(gene_expression_z)] <- 0 
       rownames(gene_expression_z) <- data$Symbol
 
@@ -239,7 +246,6 @@ clusteringTabServer <- function(id, dataset) {
       heatmap_df <- gene_data %>%
         inner_join(variable_genes, by = "Gene_Symbol")
       p <- create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
-      print(p)
       return(p)
     })
     
@@ -280,7 +286,7 @@ clusteringTabServer <- function(id, dataset) {
           actionButton(NS(id, "run_analysis"), "Run Analysis")
         })
         output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "P Values Adjusted Cutoff", value = 1)
+          numericInput(NS(id, "y_cutoff"), "P Values(-log10) Cutoff", value = 1)
         })
       }
     })
@@ -309,7 +315,7 @@ clusteringTabUI <- function(id) {
     ),
     fluidRow(
       div(class = "bottom-centered",
-        column(2, numericInput(NS(id, "x_cutoff"), "Max Mean(log2+1) Cutoff", value = 0)),
+        column(2, numericInput(NS(id, "x_cutoff"), "Max Group Expression(log2+1) Cutoff", value = 0)),
         column(2, uiOutput(NS(id, ("y_cutoff")))),
         column(2, selectInput(NS(id, "cluster_options"), "Clustering Methods",
                               choices = c("k means" = 1, "hierarchical" = 2), selected = 1)),
@@ -321,7 +327,7 @@ clusteringTabUI <- function(id) {
       column(6,
              textOutput(NS(id, "number_of_genes")),
              add_busy_spinner(spin = "fading-circle", color = "#000000"),
-             plotOutput(NS(id, "variable_genes_plot"), width = "100%", height = "700px")),
+             plotlyOutput(NS(id, "variable_genes_plot"), width = "100%", height = "700px")),
       column(6, plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "700px"))
     ),
   )
