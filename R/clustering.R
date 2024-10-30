@@ -5,7 +5,6 @@ library(pheatmap)
 library(plotly)
 library(shinybusy)
 library(dplyr)
-#library(rlang)
 
 clusteringTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -181,7 +180,7 @@ clusteringTabServer <- function(id, dataset) {
       ggplotly(p, tooltip = "text")
     })
     
-    output$number_of_genes <- renderText(paste0("Number of Selescted Genes: ", nrow(selected_variable_genes())))
+    output$number_of_genes <- renderText(paste0("Number of Selected Genes: ", nrow(selected_variable_genes())))
     
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
       data_sample_expr <- data[,-c(1, 2)]
