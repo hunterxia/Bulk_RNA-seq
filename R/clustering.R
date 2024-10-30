@@ -326,8 +326,8 @@ clusteringTabUI <- function(id) {
       column(6,
              textOutput(NS(id, "number_of_genes")),
              add_busy_spinner(spin = "fading-circle", color = "#000000"),
-             plotlyOutput(NS(id, "variable_genes_plot"), width = "100%", height = "700px")),
-      column(6, plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "700px"))
+             plotlyOutput(NS(id, "variable_genes_plot"), width = "80%", height = "560px")),
+      column(6, plotOutput(NS(id, "heatmap_plot"), width = "80%", height = "560px"))
     ),
   )
   
