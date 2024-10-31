@@ -8,6 +8,20 @@ library(plotly)
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     
+    get_max_freq <- function(df, groups) {
+      df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      df_long <- df_long %>%
+        left_join(groups, by = "Samples")
+      df_long$LogValue <- log1p(df_long$Values)
+      df_long$Bins <- cut(df_long$LogValue, breaks = seq(0, 16.5, by = input$bin_size), right = FALSE)
+      
+      bins_df <- df_long %>%
+        group_by(Bins, Samples, EXPERIMENTAL_GROUP) %>%
+        summarise(Freq = n(), .groups = 'drop')
+      
+      return(max(bins_df$Freq))
+    }
+    
     create_hist_plot <- function() {
       df <- dataset$expression_data()
       groups <- dataset$groups_data()
@@ -56,7 +70,8 @@ qcTabServer <- function(id, dataset) {
         color_label <- "Samples"
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
-      
+      max_freq <- get_max_freq(dataset$filtered_data(), groups)
+     
       # Plot
       p <- bins_df %>%
         ggplot(aes(x = Bins, y = Freq, group = Samples, color = color_mapping,
@@ -70,6 +85,7 @@ qcTabServer <- function(id, dataset) {
           y = "Gene Counts",
           color = NULL
         ) +
+        scale_y_continuous(limits = c(0, max_freq))+
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
@@ -131,6 +147,8 @@ qcTabServer <- function(id, dataset) {
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
       
+      max_freq <- get_max_freq(dataset$filtered_data(), groups)
+      
       # Plot
       p <- bins_df %>%
         ggplot(aes(x = Bins, y = Freq, group = Samples, color = color_mapping,
@@ -144,6 +162,7 @@ qcTabServer <- function(id, dataset) {
           y = "Gene Counts",
           color = NULL
         ) +
+        scale_y_continuous(limits = c(0, max_freq)) +
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
@@ -193,6 +212,7 @@ qcTabServer <- function(id, dataset) {
         color_label <- "Samples"
         fill_color <- scale_fill_viridis(discrete = TRUE)
       }
+      unfiltered_max <- max(sapply(dataset$expression_data()[,-c(1,2)], function(column) sum(column > 0)))
       
       # Plot
       p <- ggplot(counts_df, aes(x = Samples, y = Gene_Count, fill = color_mapping,
@@ -204,6 +224,7 @@ qcTabServer <- function(id, dataset) {
              y = "Gene Count",
              fill = NULL) +
         theme_ipsum() +
+        scale_y_continuous(limits = c(0, unfiltered_max)) +
         theme(
           axis.text.x = element_text(angle = 45, hjust = 1),
           axis.title.x = element_text(vjust = 0.5, hjust = 0.5),

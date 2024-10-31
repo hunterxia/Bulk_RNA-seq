@@ -34,11 +34,16 @@ mainTabServer <- function(id) {
     ns <- session$ns
     
     # Reactive values to store data
-    expression_data <- reactiveVal()       # Stores the uploaded expression data
-    groups_data <- reactiveVal()           # Stores the uploaded groups data
-    filtered_data <- reactiveVal()         # Stores the filtered expression data
-    selected_groups <- reactiveVal()       # Stores the selected groups
-    selected_samples_data <- reactiveVal() # Stores the selected samples
+    expression_data <- reactiveVal()
+    groups_data <- reactiveVal()
+    filtered_data <- reactiveVal()
+    selected_groups <- reactiveVal()
+    selected_samples_data <- reactiveVal()
+    
+    # Function to make safe IDs
+    make_safe_id <- function(name) {
+      gsub("[^A-Za-z0-9_]", "_", name)
+    }
     
     # Define a function to read data based on file type
     read_data <- function(file) {
@@ -55,29 +60,31 @@ mainTabServer <- function(id) {
     observeEvent(input$groups_input, {
       req(input$groups_input)
       grp_data <- read_data(input$groups_input)
-      groups_data(grp_data)  # Store group data in reactive variable
+      groups_data(grp_data)
       
-      # Dynamically render the groups and samples with indentation
+      # Dynamically render the groups and samples with sanitized IDs
       output$sample_selection_ui <- renderUI({
         req(groups_data())
         grp_data <- groups_data()
         
         tagList(
-          tags$h4("Toggle Groups"),  # Add a title for the toggle groups section
+          tags$h4("Toggle Groups"),
           
           lapply(unique(grp_data[['Group']]), function(group) {
+            group_id <- make_safe_id(paste0("group_", group))
             samples_in_group <- grp_data %>%
               dplyr::filter(Group == group) %>%
               pull(Sample)
             
             tagList(
-              checkboxInput(ns(paste0("group_", group)), group, value = FALSE),  # Group checkbox
+              checkboxInput(ns(group_id), group, value = FALSE),  # Group checkbox
               conditionalPanel(
-                condition = sprintf("input['%s'] == true", ns(paste0("group_", group))),
+                condition = sprintf("input['%s'] == true", ns(group_id)),
                 tagList(
                   lapply(samples_in_group, function(sample) {
-                    div(style = "margin-left: 20px;",  # Indent the samples
-                        checkboxInput(ns(paste0("sample_", sample)), sample, value = TRUE)
+                    sample_id <- make_safe_id(paste0("sample_", sample))
+                    div(style = "margin-left: 20px;",
+                        checkboxInput(ns(sample_id), sample, value = TRUE)
                     )
                   })
                 )
@@ -92,42 +99,57 @@ mainTabServer <- function(id) {
     observeEvent(input$expression_input, {
       req(input$expression_input)
       data <- read_data(input$expression_input)
-      # Convert the numeric columns (third to last) to numeric types
       data[, 3:ncol(data)] <- lapply(data[, 3:ncol(data)], as.numeric)
-      names(data) <- gsub(" ", "_", names(data))  # Clean column names
-      expression_data(data)  # Store expression data in reactive variable
+      names(data) <- gsub(" ", "_", names(data))
+      expression_data(data)
     })
     
-    # Apply filters to expression data based on selected samples and cutoff values
+    # Apply filters to expression data
     observeEvent(input$apply_filters, {
       req(expression_data(), input$expression_cutoff)
       expr_data <- expression_data()
+      grp_data <- groups_data()
       
-      # Collect selected samples from the checkbox inputs
-      selected_samples <- groups_data() %>%
-        pull(Sample) %>%
-        Filter(function(sample) input[[paste0("sample_", sample)]], .)
+      # Get all groups
+      all_groups <- unique(grp_data[['Group']])
       
-      if (length(selected_samples) == 0) {
+      # Get selected groups
+      selected_groups_list <- Filter(function(group) isTRUE(input[[make_safe_id(paste0("group_", group))]]), all_groups)
+      selected_groups(selected_groups_list)
+      
+      if (length(selected_groups_list) == 0) {
+        showNotification("No groups selected. Please select at least one group.", type = "error")
+        return(NULL)
+      }
+      
+      # Get samples in selected groups
+      samples_in_selected_groups <- grp_data %>%
+        filter(Group %in% selected_groups_list) %>%
+        pull(Sample)
+      
+      # Get selected samples
+      selected_samples_list <- samples_in_selected_groups %>%
+        Filter(function(sample) isTRUE(input[[make_safe_id(paste0("sample_", sample))]]), .)
+      
+      if (length(selected_samples_list) == 0) {
         showNotification("No samples selected. Please select samples to apply filters.", type = "error")
         return(NULL)
       }
       
-      # Update selected samples data reactive value
-      selected_samples_data(selected_samples)
+      selected_samples_data(selected_samples_list)
       cutoff <- input$expression_cutoff
       
-      # Filtering the expression data based on selected samples and cutoff
+      # Filtering the expression data
       filtered_expr_data <- expr_data %>%
-        select(c('Symbol', 'Gene_Symbol', all_of(selected_samples))) %>%
-        dplyr::filter(rowSums(.[selected_samples] >= cutoff) >= input$sample_count_cutoff)
+        select(c('Symbol', 'Gene_Symbol', all_of(selected_samples_list))) %>%
+        dplyr::filter(rowSums(.[selected_samples_list] >= cutoff) >= input$sample_count_cutoff)
       
       if (nrow(filtered_expr_data) == 0) {
         showNotification("No data matches the filtering criteria. Please adjust your filters.", type = "error")
         return(NULL)
       }
       
-      filtered_data(filtered_expr_data)  # Store filtered data in reactive variable
+      filtered_data(filtered_expr_data)
     })
     
     # Render the filtered data table
@@ -145,7 +167,7 @@ mainTabServer <- function(id) {
       }
     )
     
-    # Return a list of reactive values for other components to access
+    # Return reactive values
     return(list(
       expression_data = expression_data,
       groups_data = groups_data,
