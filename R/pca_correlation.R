@@ -140,7 +140,6 @@ PCACorrelationTabServer <- function(id, dataset) {
                width = 10,
                breaks = breaks,
                height = 10)
-      print(p)
       return(p)
     }
     
@@ -201,7 +200,6 @@ PCACorrelationTabServer <- function(id, dataset) {
                                                                    width = 10,
                                                                    breaks = breaks,
                                                                    height = 10)
-      print(hierarchical_clustered_correction_plot)
       return(hierarchical_clustered_correction_plot)
     }
     
@@ -242,7 +240,6 @@ PCACorrelationTabServer <- function(id, dataset) {
         plot <- create_correlation_plot(data, groups, input$coefficient)
       }
       
-      print(plot)
       return(plot)
       
     }, res = 96)

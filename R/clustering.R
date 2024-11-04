@@ -100,7 +100,7 @@ clusteringTabServer <- function(id, dataset) {
           group_means <- rowMeans(counts_subset, na.rm = TRUE)
           
           # Add the results to the dataframe, naming the column after the experimental group
-          averaged_counts[[exp_grp]] <- group_means
+          averaged_counts[[Group]] <- group_means
         }
         
         return(averaged_counts)
