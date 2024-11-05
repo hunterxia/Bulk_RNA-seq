@@ -290,6 +290,11 @@ clusteringTabServer <- function(id, dataset) {
       }
     })
     
+    # Return reactive values
+    return(list(
+      selected_variable_genes = selected_variable_genes
+    ))
+    
     
   })
 }
