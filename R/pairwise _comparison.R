@@ -209,7 +209,6 @@ PairwiseComparisonTabServer <- function(id, dataset) {
     expression_data <- reactive(dataset$filtered_data())
     groups_data <- reactive(dataset$groups_data())
     selected_groups <- reactive(dataset$selected_groups())
-    
     observe({
       req(selected_groups())
       grp_names <- selected_groups()
