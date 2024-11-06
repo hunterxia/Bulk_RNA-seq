@@ -12,6 +12,7 @@ clusteringTabServer <- function(id, dataset) {
     selected_variable_genes <- reactiveVal()
     samples_anova_results <- reactiveVal()
     clusters_download_data <- reactiveVal()
+    hierarchical_distance_matrix <- reactiveVal()
     
     # Apply filters based on user inputs
     observeEvent(input$run_analysis, {
@@ -27,17 +28,17 @@ clusteringTabServer <- function(id, dataset) {
 
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
-      
+
       # remove this column for simplicity 
-      gene_data <- df %>% select(-Symbol)
-      colnames(gene_data)[1] <- "Gene_Symbol"
+      gene_data <- df %>% select(-Gene_Symbol)
+      colnames(gene_data)[1] <- "Symbol"
       colnames(groups)[1] <- "Condition"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
       
       gene_data_long <- gene_data %>%
         pivot_longer(
-          cols = -Gene_Symbol,  # Exclude Gene_Symbol from the melting process
+          cols = -Symbol,  # Exclude Gene_Symbol from the melting process
           names_to = "Condition",  # This will contain the sample/condition names
           values_to = "Expression"  # This will contain the expression values
         )
@@ -47,16 +48,16 @@ clusteringTabServer <- function(id, dataset) {
         left_join(groups, by = "Condition")
       
       group_max <- gene_data_long %>%
-        group_by(Gene_Symbol, EXPERIMENTAL_GROUP) %>%
+        group_by(Symbol, EXPERIMENTAL_GROUP) %>%
         summarise(MaxExpression = max(Expression, na.rm = TRUE), .groups = 'drop')
       
       max_group_expression <- group_max %>%
-        group_by(Gene_Symbol) %>%
+        group_by(Symbol) %>%
         summarise(Max = max(MaxExpression))
       
       
       anova_results <- gene_data_long %>%
-        group_by(Gene_Symbol) %>%
+        group_by(Symbol) %>%
         do({
           model <- lm(Expression ~ EXPERIMENTAL_GROUP, data = .)
           anova_model <- anova(model)
@@ -67,8 +68,8 @@ clusteringTabServer <- function(id, dataset) {
       anova_results$p_value_adj <- p.adjust(anova_results$p_value, method = "BH")
       anova_results$p_value_log10 <- -log10(anova_results$p_value)
       anova_results %>%
-        left_join(max_group_expression, by = "Gene_Symbol")
-      
+        left_join(max_group_expression, by = "Symbol") %>%
+        left_join(df %>% select(Symbol, Gene_Symbol), by = "Symbol")
     }
     
     calculate_variable_genes_by_LFC <- function() {
@@ -79,8 +80,9 @@ clusteringTabServer <- function(id, dataset) {
       selected_groups <- dataset$selected_groups()
 
       # remove this column for simplicity 
-      gene_data <- gene_data %>% select(-Symbol)
-      colnames(gene_data)[1] <- "Gene_Symbol"
+      #gene_data <- gene_data %>% select(-Symbol)
+      colnames(gene_data)[1] <- "Symbol"
+      colnames(gene_data)[2] <- "Gene_Symbol"
       colnames(groups)[1] <- "Condition"
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
       
@@ -118,6 +120,8 @@ clusteringTabServer <- function(id, dataset) {
       
       averaged_counts_result$Gene_Symbol <- gene_data$Gene_Symbol
       
+      averaged_counts_result$Symbol <- gene_data$Symbol
+      
       averaged_counts_result$LFC <- abs(averaged_counts_result$LFC)
       
       averaged_counts_result
@@ -153,8 +157,11 @@ clusteringTabServer <- function(id, dataset) {
                 legend.text = element_text(size = 10),
                 legend.position = "right")
       } else {
-        result_data <- calculate_variable_genes_by_LFC()
+        if (input$LFC_group_1 == input$LFC_group_2) {
+          return()
+        }
         
+        result_data <- calculate_variable_genes_by_LFC()
         # update selected variable genes
         variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
@@ -200,8 +207,8 @@ clusteringTabServer <- function(id, dataset) {
 
         annotation_df <- data.frame(Gene_Symbol = data$Gene_Symbol, Clusters = clusters[["cluster"]])
         rownames(annotation_df) <- data$Symbol
-        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Gene_Symbol)
         clusters_download_data(annotation_df)
+        annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Gene_Symbol)
         order <- order(clusters$cluster)
         cor_matrix_ordered <- gene_expression_z[order, ]
         p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
@@ -219,15 +226,21 @@ clusteringTabServer <- function(id, dataset) {
         return(p)
       }
       
+      # using correlation to calculate distance matrix
+      row_cor_matrix <- cor(t(gene_expression_z))
+      row_distance_matrix <- as.dist(1 - row_cor_matrix)
+      hierarchical_distance_matrix(1 - row_cor_matrix)
       p <- pheatmap::pheatmap(gene_expression_z, 
                              cluster_rows = TRUE,
-                             cluster_cols = TRUE, 
-                             clustering_distance_rows = "correlation",
-                             clustering_distance_cols = "correlation",
+                             cluster_cols = FALSE,
+                             clustering_distance_rows = row_distance_matrix,
+                             #clustering_distance_rows = "correlation",
+                             #clustering_distance_cols = "correlation",
                              fontsize_row = 10,
                              main = "Hierarchically Clustered Matrix",
                              treeheight_row = 30,
                              angle_col = 315,
+                             show_rownames = FALSE,
                              fontsize_col = 10,
                              width = 10,
                              height = 10)
@@ -237,24 +250,35 @@ clusteringTabServer <- function(id, dataset) {
     output$heatmap_plot <- renderPlot({
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
+      browser()
       df <- dataset$filtered_data()
       # gene_data <- df %>% select(-Symbol)
       gene_data <- df
-      variable_genes <- variable_genes %>% select(Gene_Symbol)
+      variable_genes <- variable_genes %>% select(Symbol)
 
       heatmap_df <- gene_data %>%
-        inner_join(variable_genes, by = "Gene_Symbol")
+        inner_join(variable_genes, by = "Symbol")
       p <- create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
       return(p)
     })
     
-    # download correlation data
+    # download k-means clustering data
     output$download_clusters <- downloadHandler(
       filename = function() {
         paste("assigned-clusters-", Sys.Date(), ".csv", sep="")
       },
       content = function(file) {
         write.csv(clusters_download_data(), file)
+      }
+    )
+    
+    # download hierarchical clustering data
+    output$download_hierarchical <- downloadHandler(
+      filename = function() {
+        paste("hierarchical-clustering-", Sys.Date(), ".csv", sep="")
+      },
+      content = function(file) {
+        write.csv(hierarchical_distance_matrix(), file)
       }
     )
     
@@ -290,6 +314,40 @@ clusteringTabServer <- function(id, dataset) {
       }
     })
     
+    observeEvent(input$cluster_options, {
+      if (input$cluster_options == 1) {
+        output$clustering_operations <- renderUI({
+          fluidRow(
+            div(class = "bottom-centered",
+              column(6, numericInput(NS(id, "clustering_k"), "K Values", value = 5)),
+              column(6, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
+            )
+          )
+        })
+        
+      } else {
+        output$clustering_operations <- renderUI({
+          fluidRow(
+            div(class = "bottom-centered",
+                column(6, downloadButton(NS(id, "download_hierarchical"), "Download distance matrix"))
+            )
+          )
+        })
+      }
+    })
+    
+    observeEvent(input$LFC_group_1, {
+      if (input$LFC_group_1 == input$LFC_group_2) {
+        showNotification("Please select two different gourps for LFC calculation.", type = "error")
+      }
+    })
+    
+    observeEvent(input$LFC_group_2, {
+      if (input$LFC_group_1 == input$LFC_group_2) {
+        showNotification("Please select two different gourps for LFC calculation.", type = "error")
+      }
+    })
+    
     # Return reactive values
     return(list(
       selected_variable_genes = selected_variable_genes
@@ -307,6 +365,17 @@ clusteringTabUI <- function(id) {
         display: flex;
         align-items: center;
       }
+      .shiny-notification {
+        position: fixed;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%);
+        font-size: 16px;
+        color: white;
+        background-color: red;
+        padding: 10px;
+        border-radius: 5px;
+      }
     "))
     ),
     titlePanel("Clustering of Gene Expression"),
@@ -323,8 +392,7 @@ clusteringTabUI <- function(id) {
         column(2, uiOutput(NS(id, ("y_cutoff")))),
         column(2, selectInput(NS(id, "cluster_options"), "Clustering Methods",
                               choices = c("k means" = 1, "hierarchical" = 2), selected = 1)),
-        column(2, numericInput(NS(id, "clustering_k"), "K Values", value = 5)),
-        column(2, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
+        column(4, uiOutput(NS(id, ("clustering_operations"))))
       )
     ),
     fluidRow(
