@@ -12,16 +12,18 @@ source("./R/qc.R")
 source("./R/pca_correlation.R")
 source("./R/pairwise _comparison.R")
 source("./R/clustering.R")
+source("./R/inidividual_gene.R")
 server <- function(input, output, session) {
   session$onSessionEnded(function() {
     while (!is.null(dev.list())) {
       dev.off()
-      graphics.off() 
+      graphics.off()
     }
   })
   dataset <- mainTabServer("main")
   qcTabServer("qc", dataset)
   PCACorrelationTabServer("pca_correlation", dataset)
-  clustering_dataset <- clusteringTabServer("clustering", dataset)
   PairwiseComparisonTabServer("pairwise_comparison", dataset)
+  clustering_dataset <- clusteringTabServer("clustering", dataset)
+  individualGeneTabServer("individual_gene", clustering_dataset, dataset)
 }
