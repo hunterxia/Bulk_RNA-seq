@@ -29,10 +29,10 @@ PairwiseComparisonTabUI <- function(id) {
         tabsetPanel(type = "tabs",
                     tabPanel("Volcano Plot",
                              textOutput(ns("volcano_gene_counts")),
-                             plotlyOutput(ns("volcano_plot"))),
+                             plotlyOutput(ns("volcano_plot"), width = "700px", height = "700px")),
                     tabPanel("MA Plot",
                              textOutput(ns("ma_gene_counts")),
-                             plotlyOutput(ns("ma_plot"))),
+                             plotlyOutput(ns("ma_plot"), width = "700px", height = "700px")),
                     tabPanel("Positive DEG Table", DTOutput(ns("pos_deg_table"))),
                     tabPanel("Negative DEG Table", DTOutput(ns("neg_deg_table")))
         )
@@ -45,122 +45,127 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
   if (test_type == "deseq") {
     exp_data_filtered <- exp_data[, c(group1_samples, group2_samples)]
     exp_data_filtered <- round(exp_data_filtered)
-
+    
     condition <- factor(c(rep("group1", length(group1_samples)), rep("group2", length(group2_samples))))
-
+    
     dds <- DESeqDataSetFromMatrix(countData = exp_data_filtered,
-                                   colData = data.frame(condition = condition),
-                                   design = ~ condition)
-
+                                  colData = data.frame(condition = condition),
+                                  design = ~ condition)
+    
     dds <- DESeq(dds)
     res <- results(dds)
-
+    
     log2_fold_changes <- res$log2FoldChange
     p_values <- res$pvalue
-
+    
     if (adjust_pvalue) {
-      adj_pvalues <- p.adjust(p_values, method = "BH")
+      adj_pvalues <- res$padj  # DESeq2 already provides adjusted p-values
     } else {
-      adj_pvalues <- p_values
+      adj_pvalues <- res$pvalue
     }
-
-    results <- data.frame(
-      Symbols = exp_data$Symbol,
-      Gene_Symbol = exp_data$Gene_Symbol,
-      baseMean= res$baseMean,
+    
+    deg_results <- data.frame(
+      Symbols = rownames(res),
+      baseMean = res$baseMean,
       Group1Mean = rowMeans(exp_data_filtered[, group1_samples], na.rm = TRUE),
       Group2Mean = rowMeans(exp_data_filtered[, group2_samples], na.rm = TRUE),
       Log2FoldChange = log2_fold_changes,
       lfcSE = res$lfcSE,
       stat = res$stat,
       PValue = res$pvalue,
-      padj= res$padj,
-      Significant = (abs(log2_fold_changes) >= log2(fc_cutoff)) & (adj_pvalues <= pvalue_cutoff),
+      AdjPValue = adj_pvalues,
       stringsAsFactors = FALSE
     )
-
-    return (results)
-
-  }
-  else {
-    # Filter expression data to include only the relevant samples
-  group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE]
-  group2_data <- exp_data[, colnames(exp_data) %in% group2_samples, drop = FALSE]
-
-  # Add pseudocount to avoid log transformation issues
-  pseudocount <- 1
-  group1_data <- group1_data + pseudocount
-  group2_data <- group2_data + pseudocount
-
-  # Ensure the data is numeric
-  group1_data <- data.frame(lapply(group1_data, as.numeric))
-  group2_data <- data.frame(lapply(group2_data, as.numeric))
-
-  # Calculate log2 fold changes
-  log2_fold_changes <- log2(rowMeans(group2_data, na.rm = TRUE)) - log2(rowMeans(group1_data, na.rm = TRUE))
-
-  # Calculate p-values for each gene
-  p_values <- vector("numeric", length = nrow(exp_data))
-  for (i in 1:nrow(exp_data)) {
-    gene_data1 <- group1_data[i, , drop = FALSE]  # Ensure it remains as a dataframe
-    gene_data2 <- group2_data[i, , drop = FALSE]  # Ensure it remains as a dataframe
-
-    if (test_type == "paired") {
-      p_values[i] <- t.test(as.numeric(gene_data1), as.numeric(gene_data2), paired = TRUE)$p.value
-    } else if (test_type == "unpaired") {
-      p_values[i] <- t.test(as.numeric(gene_data1), as.numeric(gene_data2), paired = FALSE)$p.value
-    } else if (test_type == "mann_whitney") {
-      p_values[i] <- wilcox.test(as.numeric(gene_data1), as.numeric(gene_data2), exact = FALSE)$p.value
-    } else if (test_type == "wilcoxon") {
-      p_values[i] <- wilcox.test(as.numeric(gene_data1), as.numeric(gene_data2), paired = TRUE, exact = FALSE)$p.value
-    }
-  }
-
-  results <- data.frame(
-    Symbols = exp_data$Symbol,
-    Genes = exp_data$Gene_Symbol,
-    Log2FoldChange = log2_fold_changes,
-    PValue = p_values,
-    Group1Mean = rowMeans(exp_data[, group1_samples], na.rm = TRUE),
-    Group2Mean = rowMeans(exp_data[, group2_samples], na.rm = TRUE),
-    stringsAsFactors = FALSE
-  )
-
-  # Adjust p-values if requested
-  if (adjust_pvalue) {
-    results$AdjPValue <- p.adjust(results$PValue, method = "BH")
+    
   } else {
-    results$AdjPValue <- results$PValue
+    # Filter expression data to include only the relevant samples
+    group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE]
+    group2_data <- exp_data[, colnames(exp_data) %in% group2_samples, drop = FALSE]
+    
+    # Add pseudocount to avoid log transformation issues
+    pseudocount <- 1
+    group1_data <- group1_data + pseudocount
+    group2_data <- group2_data + pseudocount
+    
+    # Ensure the data is numeric
+    group1_data <- data.frame(lapply(group1_data, as.numeric))
+    group2_data <- data.frame(lapply(group2_data, as.numeric))
+    
+    # Calculate log2 fold changes
+    log2_fold_changes <- log2(rowMeans(group2_data, na.rm = TRUE)) - log2(rowMeans(group1_data, na.rm = TRUE))
+    
+    # Calculate p-values for each gene
+    p_values <- vector("numeric", length = nrow(exp_data))
+    for (i in 1:nrow(exp_data)) {
+      gene_data1 <- as.numeric(group1_data[i, , drop = TRUE])
+      gene_data2 <- as.numeric(group2_data[i, , drop = TRUE])
+      
+      if (test_type == "paired") {
+        p_values[i] <- t.test(gene_data1, gene_data2, paired = TRUE)$p.value
+      } else if (test_type == "unpaired") {
+        p_values[i] <- t.test(gene_data1, gene_data2, paired = FALSE)$p.value
+      } else if (test_type == "mann_whitney") {
+        p_values[i] <- wilcox.test(gene_data1, gene_data2, exact = FALSE)$p.value
+      } else if (test_type == "wilcoxon") {
+        p_values[i] <- wilcox.test(gene_data1, gene_data2, paired = TRUE, exact = FALSE)$p.value
+      }
+    }
+    
+    # Adjust p-values if requested
+    if (adjust_pvalue) {
+      adj_pvalues <- p.adjust(p_values, method = "BH")
+    } else {
+      adj_pvalues <- p_values
+    }
+    
+    deg_results <- data.frame(
+      Symbols = rownames(exp_data),
+      Group1Mean = rowMeans(group1_data, na.rm = TRUE),
+      Group2Mean = rowMeans(group2_data, na.rm = TRUE),
+      Log2FoldChange = log2_fold_changes,
+      PValue = p_values,
+      AdjPValue = adj_pvalues,
+      stringsAsFactors = FALSE
+    )
   }
-
-  # Mark significant genes
-  results$Significant <- (abs(results$Log2FoldChange) >= log2(fc_cutoff)) & (results$AdjPValue <= pvalue_cutoff)
-
-  return(results)
-  }
+  
+  # Determine significance
+  deg_results$Significant <- (deg_results$AdjPValue <= pvalue_cutoff) & (abs(deg_results$Log2FoldChange) >= log2(fc_cutoff))
+  
+  # Categorize regulation status
+  deg_results$Regulation <- "Not Significant"
+  deg_results$Regulation[deg_results$Significant & deg_results$Log2FoldChange >= log2(fc_cutoff)] <- "Upregulated"
+  deg_results$Regulation[deg_results$Significant & deg_results$Log2FoldChange <= -log2(fc_cutoff)] <- "Downregulated"
+  
+  return(deg_results)
 }
+
 
 # Volcano plot generation function
 generate_volcano_plot <- function(results, group1_name, group2_name) {
   total_genes <- nrow(results)
-  red_genes <- sum(results$Significant, na.rm = TRUE)
+  up_genes <- sum(results$Regulation == "Upregulated", na.rm = TRUE)
+  down_genes <- sum(results$Regulation == "Downregulated", na.rm = TRUE)
   
-  p <- ggplot(results, aes(x = Log2FoldChange, y = -log10(PValue), color = Significant,
+  p <- ggplot(results, aes(x = Log2FoldChange, y = -log10(PValue), color = Regulation,
                            text = paste("Gene:", Symbols,
                                         "<br>", group1_name, "Mean:", Group1Mean,
                                         "<br>", group2_name, "Mean:", Group2Mean,
                                         "<br>Fold Change:", Log2FoldChange,
-                                        "<br>P-value:", PValue))) +
+                                        "<br>P-value:", PValue,
+                                        "<br>Adj P-value:", AdjPValue))) +
     geom_point(alpha = 0.8) +
     labs(x = "Log2 Fold Change", y = "-log10(P-value)", title = "Volcano Plot") +
-    scale_color_manual(values = c("grey", "red"), na.value = "grey") +
-    theme_minimal()
-  
-  print(paste("Total genes in volcano plot:", total_genes))
-  print(paste("Red genes in volcano plot:", red_genes))
+    scale_color_manual(values = c("Upregulated" = "red",
+                                  "Downregulated" = "blue",
+                                  "Not Significant" = "grey")) +
+    theme_minimal() +
+    coord_fixed()  
   
   ggplotly(p, tooltip = "text")
 }
+
+
 
 
 # MA plot generation function
@@ -173,31 +178,41 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
   A <- (log2(rowMeans(group1_data)) + log2(rowMeans(group2_data))) / 2
   M <- log2(rowMeans(group2_data)) - log2(rowMeans(group1_data))
   
-  ma_data <- data.frame(A = A, M = M, Significant = results$Significant,
+  ma_data <- data.frame(A = A, M = M,
+                        Regulation = results$Regulation,
                         Symbols = results$Symbols,
                         Group1Mean = rowMeans(group1_data),
                         Group2Mean = rowMeans(group2_data),
                         Log2FoldChange = M,
-                        PValue = results$PValue)
+                        PValue = results$PValue,
+                        AdjPValue = results$AdjPValue)
   
   total_genes <- nrow(ma_data)
-  red_genes <- sum(ma_data$Significant, na.rm = TRUE)
+  up_genes <- sum(ma_data$Regulation == "Upregulated", na.rm = TRUE)
+  down_genes <- sum(ma_data$Regulation == "Downregulated", na.rm = TRUE)
   
   print(paste("Total genes in MA plot:", total_genes))
-  print(paste("Red genes in MA plot:", red_genes))
+  print(paste("Upregulated genes:", up_genes))
+  print(paste("Downregulated genes:", down_genes))
   
-  p <- ggplot(ma_data, aes(x = A, y = M, color = Significant,
+  p <- ggplot(ma_data, aes(x = A, y = M, color = Regulation,
                            text = paste("Gene:", Symbols,
                                         "<br>", group1_name, "Mean:", Group1Mean,
                                         "<br>", group2_name, "Mean:", Group2Mean,
-                                        "<br>Fold Change:", Log2FoldChange))) +
+                                        "<br>Fold Change:", Log2FoldChange,
+                                        "<br>P-value:", PValue,
+                                        "<br>Adj P-value:", AdjPValue))) +
     geom_point(alpha = 0.5) +
     labs(x = "Average Log Intensity (A)", y = "Log Fold Change (M)", title = "MA Plot") +
-    scale_color_manual(values = c("grey", "red"), na.value = "grey") +
-    theme_minimal()
+    scale_color_manual(values = c("Upregulated" = "red",
+                                  "Downregulated" = "blue",
+                                  "Not Significant" = "grey")) +
+    theme_minimal() +
+    coord_fixed()
   
   ggplotly(p, tooltip = "text")
 }
+
 
 
 
@@ -209,6 +224,14 @@ PairwiseComparisonTabServer <- function(id, dataset) {
     expression_data <- reactive(dataset$filtered_data())
     groups_data <- reactive(dataset$groups_data())
     selected_groups <- reactive(dataset$selected_groups())
+    
+    # Reactive value to store the results
+    deg_results <- reactiveVal()
+    
+    # Disable download buttons initially
+    shinyjs::disable("download_all")
+    shinyjs::disable("download_filtered")
+    
     observe({
       req(selected_groups())
       grp_names <- selected_groups()
@@ -226,63 +249,67 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       group1_samples <- grp_data$Sample[grp_data$Group == input$select_group1]
       group2_samples <- grp_data$Sample[grp_data$Group == input$select_group2]
       
-      # Debug statements
-      print(paste("Group 1 Samples:", toString(group1_samples)))
-      print(paste("Group 2 Samples:", toString(group2_samples)))
-      print(paste("Expression Data Columns:", toString(colnames(exp_data))))
-      
       # Ensure the sample names match the column names in the expression data
       group1_samples <- intersect(group1_samples, colnames(exp_data))
       group2_samples <- intersect(group2_samples, colnames(exp_data))
       
-      # Debug statements after intersection
-      print(paste("Filtered Group 1 Samples:", toString(group1_samples)))
-      print(paste("Filtered Group 2 Samples:", toString(group2_samples)))
-      
       # Perform the DEG analysis
-      results <- perform_DEG_analysis(exp_data, group1_samples, group2_samples,
-                                      input$test_type, input$fc_cutoff, input$pvalue_cutoff, input$adjust_pvalue)
+      res <- perform_DEG_analysis(exp_data, group1_samples, group2_samples,
+                                  input$test_type, input$fc_cutoff, input$pvalue_cutoff, input$adjust_pvalue)
       
-      # Get significant genes
-      significant_genes <- results$Symbols[results$Significant]
+      # Store the results in a reactive value
+      deg_results(res)
       
-      # Debug statement for significant genes
-      print(paste("Significant Genes:", toString(significant_genes)))
+      # Enable download buttons after analysis
+      shinyjs::enable("download_all")
+      shinyjs::enable("download_filtered")
       
       # Separate results into positive and negative DEG tables
-      pos_results <- results[results$Log2FoldChange >= 0, ]
-      neg_results <- results[results$Log2FoldChange < 0, ]
+      pos_results <- res[res$Regulation == "Upregulated", ]
+      neg_results <- res[res$Regulation == "Downregulated", ]
       
       # Calculate and display gene counts
-      total_genes <- nrow(results)
-      red_genes <- sum(results$Significant, na.rm = TRUE)
+      total_genes <- nrow(res)
+      up_genes <- sum(res$Regulation == "Upregulated", na.rm = TRUE)
+      down_genes <- sum(res$Regulation == "Downregulated", na.rm = TRUE)
       
+      # Update gene counts
       output$volcano_gene_counts <- renderText({
-        paste("Total genes:", total_genes, "Red genes:", red_genes)
+        paste("Total genes:", total_genes,
+              "| Upregulated genes:", up_genes,
+              "| Downregulated genes:", down_genes)
       })
       
       output$ma_gene_counts <- renderText({
-        paste("Total genes:", total_genes, "Red genes:", red_genes)
+        paste("Total genes:", total_genes,
+              "| Upregulated genes:", up_genes,
+              "| Downregulated genes:", down_genes)
       })
       
       # Update outputs: Volcano Plot, MA Plot, DEG Tables
-      output$volcano_plot <- renderPlotly({ generate_volcano_plot(results, input$select_group1, input$select_group2) })
-      output$ma_plot <- renderPlotly({ generate_ma_plot(exp_data, group1_samples, group2_samples, results, input$select_group1, input$select_group2) })
+      output$volcano_plot <- renderPlotly({ generate_volcano_plot(res, input$select_group1, input$select_group2) })
+      
+      output$ma_plot <- renderPlotly({ generate_ma_plot(exp_data, group1_samples, group2_samples, res, input$select_group1, input$select_group2) })
+      
       output$pos_deg_table <- renderDT({ datatable(pos_results, options = list(pageLength = 10), rownames = FALSE) })
+      
       output$neg_deg_table <- renderDT({ datatable(neg_results, options = list(pageLength = 10), rownames = FALSE) })
+      
     })
     
     # Download handlers for DEG results
     output$download_all <- downloadHandler(
       filename = function() { "full_deg_output.csv" },
       content = function(file) {
-        write.csv(results(), file, row.names = FALSE)
+        req(deg_results())
+        write.csv(deg_results(), file, row.names = FALSE)
       }
     )
     output$download_filtered <- downloadHandler(
       filename = function() { "filtered_deg_output.csv" },
       content = function(file) {
-        write.csv(subset(results(), AdjPValue <= input$pvalue_cutoff), file, row.names = FALSE)
+        req(deg_results())
+        write.csv(subset(deg_results(), Regulation != "Not Significant"), file, row.names = FALSE)
       }
     )
   })
