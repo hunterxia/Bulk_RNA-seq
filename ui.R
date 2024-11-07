@@ -15,18 +15,30 @@ source("./R/qc.R")
 source("./R/pca_correlation.R")
 source("./R/pairwise _comparison.R")
 source("./R/clustering.R")
+source("./R/inidividual_gene.R")
 ui <- fluidPage(
   titlePanel("RNA-seq Data Visualization App"),
   tabsetPanel(
-    tabPanel("MainTab",
-             mainTabUI("main")),
-    tabPanel("QC Tab",
-             qcTabUI("qc")),
-    tabPanel("PCA and Correlation",
-             PCACorrelationTabUI("pca_correlation")),
-    tabPanel("Pairwise Comparison",
-             PairwiseComparisonTabUI("pairwise_comparison")),
-    tabPanel("Clustering",
-             clusteringTabUI("clustering"))
+    tabPanel(
+      "MainTab",
+      mainTabUI("main")
+    ),
+    tabPanel(
+      "QC Tab",
+      qcTabUI("qc")
+    ),
+    tabPanel(
+      "PCA and Correlation",
+      PCACorrelationTabUI("pca_correlation")
+    ),
+    tabPanel(
+      "Pairwise Comparison",
+      PairwiseComparisonTabUI("pairwise_comparison")
+    ),
+    tabPanel(
+      "Clustering",
+      clusteringTabUI("clustering")
+    ),
+    tabPanel("Individual Gene", individualGeneTabUI("individual_gene"))
   )
 )
