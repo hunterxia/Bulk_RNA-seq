@@ -245,6 +245,8 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       exp_data <- expression_data()
       grp_data <- groups_data()
       
+      showModal(modalDialog("Running analysis, please wait...", footer = NULL))
+      
       # Map group selections to sample names
       group1_samples <- grp_data$Sample[grp_data$Group == input$select_group1]
       group2_samples <- grp_data$Sample[grp_data$Group == input$select_group2]
@@ -287,9 +289,13 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       })
       
       # Update outputs: Volcano Plot, MA Plot, DEG Tables
-      output$volcano_plot <- renderPlotly({ generate_volcano_plot(res, input$select_group1, input$select_group2) })
+      output$volcano_plot <- renderPlotly({ 
+        on.exit(removeModal())
+        generate_volcano_plot(res, input$select_group1, input$select_group2) })
       
-      output$ma_plot <- renderPlotly({ generate_ma_plot(exp_data, group1_samples, group2_samples, res, input$select_group1, input$select_group2) })
+      output$ma_plot <- renderPlotly({ 
+        on.exit(removeModal())
+        generate_ma_plot(exp_data, group1_samples, group2_samples, res, input$select_group1, input$select_group2) })
       
       output$pos_deg_table <- renderDT({ datatable(pos_results, options = list(pageLength = 10), rownames = FALSE) })
       
