@@ -250,11 +250,23 @@ clusteringTabServer <- function(id, dataset) {
     output$heatmap_plot <- renderPlot({
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
-      browser()
-      df <- dataset$filtered_data()
-      # gene_data <- df %>% select(-Symbol)
-      gene_data <- df
+      gene_data <- dataset$filtered_data()
+      groups <- dataset$groups_data()
       variable_genes <- variable_genes %>% select(Symbol)
+      
+      # show by group
+      if (input$clustering_grouped) {
+        gene_data_long <- pivot_longer(gene_data, cols = -names(gene_data)[1:2], names_to = "Sample", values_to = "Values")
+        
+        gene_data_long_grouped <- gene_data_long %>%
+          left_join(groups, by = "Sample") 
+        
+        gene_data_long_grouped_sum <- gene_data_long_grouped %>%
+          group_by(Symbol, Gene_Symbol, Group) %>%
+          summarize(Values = sum(Values), .groups = "drop")
+        
+        gene_data <- pivot_wider(gene_data_long_grouped_sum, names_from = Group, values_from = Values, values_fill = list(value = 0))
+      }
 
       heatmap_df <- gene_data %>%
         inner_join(variable_genes, by = "Symbol")
@@ -319,8 +331,9 @@ clusteringTabServer <- function(id, dataset) {
         output$clustering_operations <- renderUI({
           fluidRow(
             div(class = "bottom-centered",
-              column(6, numericInput(NS(id, "clustering_k"), "K Values", value = 5)),
-              column(6, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
+              column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5)),
+              column(3, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
+              column(4, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
             )
           )
         })
@@ -329,6 +342,7 @@ clusteringTabServer <- function(id, dataset) {
         output$clustering_operations <- renderUI({
           fluidRow(
             div(class = "bottom-centered",
+                column(3,materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
                 column(6, downloadButton(NS(id, "download_hierarchical"), "Download distance matrix"))
             )
           )
