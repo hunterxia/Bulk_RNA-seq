@@ -4,6 +4,7 @@ library(plotly)
 library(ggcorrplot)
 library(reshape2)
 library(shinybusy)
+library(heatmaply)
 
 PCACorrelationTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -113,6 +114,7 @@ PCACorrelationTabServer <- function(id, dataset) {
         annotation_colors <- list(
           Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
         )
+        filtered_row_side_colors <- rownames(cor_matrix)
       } else {
         annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
         annotation_row <- data.frame(Samples = annotation_df$Samples)
@@ -120,26 +122,29 @@ PCACorrelationTabServer <- function(id, dataset) {
         annotation_colors <- list(
           Samples = setNames(annotation_df$Color, annotation_df$Samples)
         )
+        filtered_row_side_colors <- annotation_row$Samples[annotation_row$Samples %in% rownames(cor_matrix)]
       }
       
       corr_download_data(cor_matrix)
-      p <- pheatmap::pheatmap(cor_matrix, 
-               annotation_row = annotation_row,
-               annotation_colors = annotation_colors,
-               annotation_legend = FALSE,
-               cluster_rows = FALSE,
-               cluster_cols = FALSE,
-               clustering_distance_rows = "euclidean",
-               clustering_distance_cols = "euclidean",
-               clustering_method = "complete",
-               fontsize_row = 10,
-               main = title_hierarchical,
-               treeheight_row = 30,
-               angle_col = 315,
-               fontsize_col = 10,
-               width = 10,
-               breaks = breaks,
-               height = 10)
+      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
+      p <- heatmaply(
+        cor_matrix,
+        Rowv = FALSE,
+        Colv = FALSE,
+        row_side_colors = rownames(cor_matrix),
+        row_side_palette = annotation_colors$Samples,
+        main = title_hierarchical,
+        colors = custom_colors(100), 
+        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
+        fontsize_row = 10,
+        fontsize_col = 10,
+        grid_color = "grey",
+        xlab = NULL, 
+        ylab = NULL,
+        colorbar_thickness = 10,
+        label_names = c("X-axis", "Y-axis", "Value")
+      ) %>% layout(showlegend = FALSE)
+      
       return(p)
     }
     
@@ -183,24 +188,30 @@ PCACorrelationTabServer <- function(id, dataset) {
         )
       }
       
-      corr_download_data(cor_matrix)
-      hierarchical_clustered_correction_plot <- pheatmap::pheatmap(cor_matrix, 
-                                                                   cluster_rows = TRUE,
-                                                                   cluster_cols = TRUE, 
-                                                                   annotation_row = annotation_row,
-                                                                   annotation_colors = annotation_colors,
-                                                                   annotation_legend = FALSE,
-                                                                   clustering_distance_rows = "correlation",
-                                                                   clustering_distance_cols = "correlation",
-                                                                   fontsize_row = 10,
-                                                                   main = title_hierarchical,
-                                                                   treeheight_row = 30,
-                                                                   angle_col = 315,
-                                                                   fontsize_col = 10,
-                                                                   width = 10,
-                                                                   breaks = breaks,
-                                                                   height = 10)
-      return(hierarchical_clustered_correction_plot)
+      distance_matrix <- function(cor_matrix) {
+        as.dist(1 - cor_matrix)
+      }
+      
+      corr_download_data(distance_matrix(cor_matrix))
+      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
+      p <- heatmaply(
+        cor_matrix,
+        row_side_colors = rownames(cor_matrix),
+        row_side_palette = annotation_colors$Samples,
+        Rowv = hclust(distance_matrix(cor_matrix)),
+        Colv = hclust(distance_matrix(t(cor_matrix))),
+        main = title_hierarchical,
+        colors = custom_colors(100),
+        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
+        fontsize_row = 10,
+        fontsize_col = 10,
+        grid_color = "grey",
+        xlab = NULL, 
+        ylab = NULL,
+        colorbar_thickness = 10,
+        label_names = c("X-axis", "Y-axis", "Value")
+      ) %>% layout(showlegend = FALSE)
+      return(p)
     }
     
     
@@ -209,7 +220,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       create_pca_plot()
     })
     
-    output$correlation <- renderPlot({
+    output$correlation <- renderPlotly({
       req(dataset$filtered_data(), dataset$groups_data())
       gene_data <- dataset$filtered_data()
       groups <- dataset$groups_data()
@@ -242,7 +253,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       
       return(plot)
       
-    }, res = 96)
+    })
     
     # download pca data
     output$download_pca <- downloadHandler(
@@ -353,7 +364,6 @@ PCACorrelationTabUI <- function(id) {
                 downloadButton(NS(id, "download_pca"), "Download Data")
          ),
        ),
-       # downloadButton(NS(id, "download_pca"), "Download Data"),
        plotlyOutput(NS(id, "pca"), width = "100%", height = "700px")
       ),
       column(6, 
@@ -363,11 +373,15 @@ PCACorrelationTabUI <- function(id) {
                             c("Pearson’s coefficient" = "pearson",
                               " Spearman’s rank coefficient" = "spearman"))
          ),
-         column(3, 
-                # selectInput(NS(id, "by"), "By:",
-                #             c("None" = 1,
-                #               "Group" = 2,
-                #               "Cluster" = 3), selected=1)
+         column(3,
+                sliderInput(NS(id, "scale"),
+                            "Scale:",
+                            min = -1,
+                            max = 1,
+                            step = 0.05,
+                            value = c(0, 1))
+         ),
+         column(3,
                 materialSwitch(inputId = NS(id, "clustered"), label = "Hierarchical Clustering: ", value = FALSE, status = "primary")
          ),
          column(2, 
@@ -376,7 +390,7 @@ PCACorrelationTabUI <- function(id) {
        ),
        add_busy_spinner(spin = "fading-circle", color = "#000000"),
        div(id = "plot-container",
-           plotOutput(NS(id, "correlation"), height = "85%")
+           plotlyOutput(NS(id, "correlation"), height = "85%")
        )
        
       )

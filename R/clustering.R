@@ -135,11 +135,11 @@ clusteringTabServer <- function(id, dataset) {
         result_data$Max_log2 <- log2(result_data$Max + 1)
   
         # update selected variable genes
-        variable_genes <- dplyr::filter(result_data, p_value_log10 <= input$y_cutoff, Max_log2 >= input$x_cutoff)
+        variable_genes <- dplyr::filter(result_data, p_value_log10 >= input$y_cutoff, Max_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
         
         # highlight selected variable genes in the plot
-        result_data$highlight <- ifelse(result_data$p_value_log10 <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
+        result_data$highlight <- ifelse(result_data$p_value_log10 >= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
         
         p <- result_data %>%
           ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
@@ -321,7 +321,7 @@ clusteringTabServer <- function(id, dataset) {
           actionButton(NS(id, "run_analysis"), "Run Analysis")
         })
         output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "P Values(-log10) Cutoff", value = 1)
+          numericInput(NS(id, "y_cutoff"), "P Values(-log10) Cutoff", value = 0.05)
         })
       }
     })

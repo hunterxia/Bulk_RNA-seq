@@ -20,15 +20,15 @@ ui <- fluidPage(
   titlePanel("RNA-seq Data Visualization App"),
   tabsetPanel(
     tabPanel(
-      "MainTab",
+      "Main",
       mainTabUI("main")
     ),
     tabPanel(
-      "QC Tab",
+      "Quality Control",
       qcTabUI("qc")
     ),
     tabPanel(
-      "PCA and Correlation",
+      "Global Comparison",
       PCACorrelationTabUI("pca_correlation")
     ),
     tabPanel(
