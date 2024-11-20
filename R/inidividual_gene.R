@@ -21,7 +21,6 @@ individualGeneTabUI <- function(id) {
 }
 
 individualGeneTabServer <- function(id, dataset, main_dataset) {
-
   add_group_traces <- function(p, data, ordered_groups, color_mapping) {
     for (grp in ordered_groups) {
       grp_data <- subset(data, Group == grp)
@@ -29,20 +28,20 @@ individualGeneTabServer <- function(id, dataset, main_dataset) {
 
       # Add box plot trace
       p <- add_trace(p,
-                     data = grp_data, x = ~Group, y = ~Count, type = "box",
-                     color = I(color_mapping[grp]), name = grp,
-                     text = grp_hover_text, hoverinfo = "text+y"
+        data = grp_data, x = ~Group, y = ~Count, type = "box",
+        color = I(color_mapping[grp]), name = grp,
+        text = grp_hover_text, hoverinfo = "text+y"
       )
 
       # Add scatter plot points
       grp_colors <- rep(color_mapping[grp], times = nrow(grp_data))
 
       p <- add_trace(p,
-                     data = grp_data, x = ~Group, y = ~Count,
-                     type = "scatter", mode = "markers",
-                     marker = list(color = I(grp_colors), size = 10, opacity = 0.6),
-                     text = grp_hover_text, hoverinfo = "text+y",
-                     showlegend = FALSE
+        data = grp_data, x = ~Group, y = ~Count,
+        type = "scatter", mode = "markers",
+        marker = list(color = I(grp_colors), size = 10, opacity = 0.6),
+        text = grp_hover_text, hoverinfo = "text+y",
+        showlegend = FALSE
       )
     }
     return(p)
@@ -115,11 +114,11 @@ individualGeneTabServer <- function(id, dataset, main_dataset) {
       main_dataset$groups_data()
     })
 
-    # Update the select gene input based on the clustering data
+    # Update the select gene input
     observe({
-      req(clustering_data())
-      genes <- c("select all", clustering_data()$Gene_Symbol)
-      updateSelectInput(session, "select_gene", choices = genes, selected = genes[2])
+      req(main_filtered_data())
+      genes <- main_filtered_data()$Gene_Symbol
+      updateSelectInput(session, "select_gene", choices = genes, selected = genes[1])
     })
 
     # Filter the data based on the selected gene
@@ -127,13 +126,9 @@ individualGeneTabServer <- function(id, dataset, main_dataset) {
       req(input$select_gene, main_filtered_data())
 
       # Filter the data based on the selected gene
-      if ("select all" %in% input$select_gene) {
-        res <- main_filtered_data() %>%
-          filter(Gene_Symbol %in% clustering_data()$Gene_Symbol)
-      } else {
-        res <- main_filtered_data() %>%
-          filter(Gene_Symbol %in% input$select_gene)
-      }
+      res <- main_filtered_data() %>%
+        filter(Gene_Symbol %in% input$select_gene)
+
 
       # Reshape the data
       res_long <- res %>%
@@ -166,8 +161,8 @@ individualGeneTabServer <- function(id, dataset, main_dataset) {
         output[[paste0("plot_", gene)]] <- renderPlotly({
           gene_specific_data <- gene_data %>% filter(Gene_Symbol == gene)
           p <- plot_the_data(gene_specific_data,
-                             name = "Gene Expression Data",
-                             cpm_fpkm_label = "Expression Level", gene_name = gene
+            name = "Gene Expression Data",
+            cpm_fpkm_label = "Expression Level", gene_name = gene
           )
           p %>% layout(
             autosize = TRUE,
