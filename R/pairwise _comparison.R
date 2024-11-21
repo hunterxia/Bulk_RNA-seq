@@ -21,28 +21,35 @@ PairwiseComparisonTabUI <- function(id) {
             "Deseq" = "deseq"
           )
         ),
-        numericInput(ns("fc_cutoff"), "Fold Change Cutoff", value = 1),
-        numericInput(ns("pvalue_cutoff"), "P-value Cutoff", value = 0.05),
+        numericInput(
+          ns("fc_cutoff"),
+          "Fold Change Cutoff",
+          value = 1,
+          step = 0.05  # Adjusted step size for fold change
+        ),
+        numericInput(
+          ns("pvalue_cutoff"),
+          "P-value Cutoff",
+          value = 0.05,
+          min = 0,       # Set minimum value for p-value
+          max = 0.5,     # Set maximum value for p-value
+          step = 0.01    # Adjusted step size for p-value
+        ),
         checkboxInput(ns("adjust_pvalue"), "Use Adjusted P-Value", value = FALSE),
         actionButton(ns("run_analysis"), "Run Analysis"),
         downloadButton(ns("download_all"), "Download Full DEG Output"),
         downloadButton(ns("download_filtered"), "Download Filtered DEGs")
       ),
       mainPanel(
-        tabsetPanel(
-          type = "tabs",
-          tabPanel(
-            "Volcano Plot",
-            textOutput(ns("volcano_gene_counts")),
-            plotlyOutput(ns("volcano_plot"), width = "700px", height = "700px")
-          ),
-          tabPanel(
-            "MA Plot",
-            textOutput(ns("ma_gene_counts")),
-            plotlyOutput(ns("ma_plot"), width = "700px", height = "700px")
-          ),
-          tabPanel("Positive DEG Table", DTOutput(ns("pos_deg_table"))),
-          tabPanel("Negative DEG Table", DTOutput(ns("neg_deg_table")))
+        tabsetPanel(type = "tabs",
+                    tabPanel("Volcano Plot",
+                             textOutput(ns("volcano_gene_counts")),
+                             plotlyOutput(ns("volcano_plot"))),
+                    tabPanel("MA Plot",
+                             textOutput(ns("ma_gene_counts")),
+                             plotlyOutput(ns("ma_plot"))),
+                    tabPanel("Positive DEG Table", DTOutput(ns("pos_deg_table"))),
+                    tabPanel("Negative DEG Table", DTOutput(ns("neg_deg_table")))
         )
       )
     )
@@ -77,7 +84,7 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
 
 
     deg_results <- data.frame(
-      Symbols = exp_data$Symbol,
+      Symbols = rownames(exp_data),
       Gene_Symbol = exp_data$Gene_Symbol,
       baseMean = res$baseMean,
       Group1Mean = rowMeans(exp_data_filtered[, group1_samples], na.rm = TRUE),
@@ -132,6 +139,7 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
 
     deg_results <- data.frame(
       Symbols = rownames(exp_data),
+      Gene_Symbol = exp_data$Gene_Symbol,
       Group1Mean = rowMeans(group1_data, na.rm = TRUE),
       Group2Mean = rowMeans(group2_data, na.rm = TRUE),
       Log2FoldChange = log2_fold_changes,
@@ -162,7 +170,7 @@ generate_volcano_plot <- function(results, group1_name, group2_name) {
   p <- ggplot(results, aes(
     x = Log2FoldChange, y = -log10(PValue), color = Regulation,
     text = paste(
-      "Gene:", Symbols,
+      "Gene:", Gene_Symbol,
       "<br>", group1_name, "Mean:", Group1Mean,
       "<br>", group2_name, "Mean:", Group2Mean,
       "<br>Fold Change:", Log2FoldChange,
@@ -177,8 +185,7 @@ generate_volcano_plot <- function(results, group1_name, group2_name) {
       "Downregulated" = "blue",
       "Not Significant" = "grey"
     )) +
-    theme_minimal() +
-    coord_fixed()
+    theme_minimal()
 
   ggplotly(p, tooltip = "text")
 }
@@ -218,7 +225,7 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
   p <- ggplot(ma_data, aes(
     x = A, y = M, color = Regulation,
     text = paste(
-      "Gene:", Symbols,
+      "Gene:", Gene_Symbol,
       "<br>", group1_name, "Mean:", Group1Mean,
       "<br>", group2_name, "Mean:", Group2Mean,
       "<br>Fold Change:", Log2FoldChange,
@@ -233,8 +240,7 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
       "Downregulated" = "blue",
       "Not Significant" = "grey"
     )) +
-    theme_minimal() +
-    coord_fixed()
+    theme_minimal()
 
   ggplotly(p, tooltip = "text")
 }

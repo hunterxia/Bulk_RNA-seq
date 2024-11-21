@@ -8,6 +8,8 @@ library(plotly)
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     
+    grouped <- reactive({ TRUE })
+    
     get_max_freq <- function(df, groups) {
       df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
       df_long <- df_long %>%
@@ -54,7 +56,7 @@ qcTabServer <- function(id, dataset) {
         summarise(Freq = n(), .groups = 'drop')
       
       # Assign colors based on input$grouped
-      if (input$grouped) {
+      if (TRUE) {
         color_mapping <- bins_df$EXPERIMENTAL_GROUP
         color_label <- "Experimental Group"
         
@@ -70,8 +72,8 @@ qcTabServer <- function(id, dataset) {
         color_label <- "Samples"
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
-      max_freq <- get_max_freq(dataset$filtered_data(), groups)
-     
+      max_freq <- get_max_freq(dataset$expression_data(), groups)
+      
       # Plot
       p <- bins_df %>%
         ggplot(aes(x = Bins, y = Freq, group = Samples, color = color_mapping,
@@ -130,7 +132,7 @@ qcTabServer <- function(id, dataset) {
         summarise(Freq = n(), .groups = 'drop')
       
       # Assign colors based on input$grouped
-      if (input$grouped) {
+      if (TRUE) {
         color_mapping <- bins_df$EXPERIMENTAL_GROUP
         color_label <- "Experimental Group"
         
@@ -147,7 +149,7 @@ qcTabServer <- function(id, dataset) {
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
       
-      max_freq <- get_max_freq(dataset$filtered_data(), groups)
+      max_freq <- get_max_freq(dataset$expression_data(), groups)
       
       # Plot
       p <- bins_df %>%
@@ -196,7 +198,7 @@ qcTabServer <- function(id, dataset) {
       counts_df <- counts_df %>%
         left_join(groups, by = "Samples")
       
-      if (input$grouped) {
+      if (TRUE) {
         color_mapping <- counts_df$EXPERIMENTAL_GROUP
         color_label <- "Experimental Group"
         
@@ -308,38 +310,26 @@ qcTabServer <- function(id, dataset) {
 qcTabUI <- function(id) {
   fluidPage(
     tags$head(
-      tags$style(HTML("
-      .bottom-centered {
-        display: flex;
-        align-items: center;
-      }
-    "))
+      tags$style(HTML(" .bottom-centered { display: flex; align-items: center; } "))
     ),
     fluidRow(class = "bottom-centered",
-             column(2, 
-                    sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25),
-                    # downloadButton(NS(id, "download_hist"), "Download Plots")
-             ),
-             column(1, 
-                    materialSwitch(inputId = NS(id, "grouped"), label = "Show by group: ", value = FALSE, status = "primary")
-                    # colourInput(NS(id, "color"), "a01_brain_microglia1_Exp1_m:", value = "#FFFFFF"),
-                    # switchInput(inputId = "grouped", label = "Show by group", value = TRUE)
-                    # materialSwitch(inputId = "Id077", label = "Show by group", value = TRUE, status = "primary")
-             ),
+             column(2,
+                    sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25)
+             )
     ),
     fluidRow(
-      column(6, 
+      column(6,
              plotlyOutput(NS(id, "hist"))
       ),
-      column(6, 
+      column(6,
              plotlyOutput(NS(id, "filtered_hist"))
       )
     ),
     fluidRow(
-      column(6, 
+      column(6,
              plotlyOutput(NS(id, "grouped_hist"))
       ),
-      column(6, 
+      column(6,
              plotlyOutput(NS(id, "grouped_filtered_hist"))
       )
     )
