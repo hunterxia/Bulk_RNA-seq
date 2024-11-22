@@ -3,8 +3,8 @@ library(reshape2)
 library(ggplot2)
 library(pheatmap)
 library(plotly)
-library(shinybusy)
 library(dplyr)
+library(heatmaply)
 
 clusteringTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -17,13 +17,16 @@ clusteringTabServer <- function(id, dataset) {
     # Apply filters based on user inputs
     observeEvent(input$run_analysis, {
       isolate({
+        showModal(modalDialog("Running analysis, please wait...", footer = NULL))
         # Only recalculates when the above reactive values change
         samples_anova_results(calculate_variable_genes())
       })
 
     })
 
+    # calculate the ANOVA value
     calculate_variable_genes <- function(){
+      
       req(dataset$filtered_data(), dataset$groups_data)
 
       df <- dataset$filtered_data()
@@ -72,6 +75,7 @@ clusteringTabServer <- function(id, dataset) {
         left_join(df %>% select(Symbol, Gene_Symbol), by = "Symbol")
     }
     
+    # calculate the LFC value
     calculate_variable_genes_by_LFC <- function() {
       req(input$LFC_group_1, input$LFC_group_2)
       
@@ -127,11 +131,14 @@ clusteringTabServer <- function(id, dataset) {
       averaged_counts_result
     }
     
+    # render variable genes plot
     output$variable_genes_plot <- renderPlotly({
+      on.exit(removeModal())
+      
+      # render by ANOVA
       if (input$y_axis_var == 1) {
         req(samples_anova_results())
         result_data <- samples_anova_results()
-  
         result_data$Max_log2 <- log2(result_data$Max + 1)
   
         # update selected variable genes
@@ -157,6 +164,7 @@ clusteringTabServer <- function(id, dataset) {
                 legend.text = element_text(size = 10),
                 legend.position = "right")
       } else {
+        # render by LFC
         if (input$LFC_group_1 == input$LFC_group_2) {
           return()
         }
@@ -189,9 +197,9 @@ clusteringTabServer <- function(id, dataset) {
     
     output$number_of_genes <- renderText(paste0("Number of Selected Genes: ", nrow(selected_variable_genes())))
     
+    # render heatmap using selected variable genes
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
       data_sample_expr <- data[,-c(1, 2)]
-      #gene_expression_z <- scale(data_sample_expr)
       
       min_max_normalize <- function(x) {
         (x - min(x)) / (max(x) - min(x))
@@ -211,17 +219,48 @@ clusteringTabServer <- function(id, dataset) {
         annotation_df <- annotation_df %>% arrange(Clusters) %>% select(-Gene_Symbol)
         order <- order(clusters$cluster)
         cor_matrix_ordered <- gene_expression_z[order, ]
-        p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
-                                                               cluster_rows = FALSE,
-                                                               cluster_cols = FALSE,
-                                                               fontsize_row = 10,
-                                                               main = "K-means Clustered Matrix",
-                                                               treeheight_row = 30,
-                                                               labels_row = "",
-                                                               angle_col = 315,
-                                                               fontsize_col = 10,
-                                                               width = 10,
-                                                               height = 10)
+        
+        # built-in heatmap has high resolution, but does not have move over function
+        # p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
+        #                                                        cluster_rows = FALSE,
+        #                                                        cluster_cols = FALSE,
+        #                                                        fontsize_row = 10,
+        #                                                        main = "K-means Clustered Matrix",
+        #                                                        treeheight_row = 30,
+        #                                                        labels_row = "",
+        #                                                        angle_col = 315,
+        #                                                        fontsize_col = 10,
+        #                                                        width = 10,
+        #                                                        height = 10)
+        
+        # set up the colors for each side bar
+        cluster_colors <- colorRampPalette(c("#F8FBFF", "#E7F8FA", "#A6DAD4", "#6EB784", "#397F36"))(max_clusters)
+        annotation_colors <- setNames(cluster_colors[annotation_df$Clusters], annotation_df$Clusters)
+        
+        # heatmaply has low resolution, but has move over function
+        p <- heatmaply(
+          cor_matrix_ordered,
+          Rowv = FALSE,
+          Colv = FALSE,
+          row_side_colors = annotation_df,
+          colors = colorRampPalette(c("#5074AF", "white", "#CA4938"))(100),
+          row_side_palette = annotation_colors,
+          main = "K-means Clustered Matrix",
+          fontsize_row = 10,
+          fontsize_col = 10,
+          grid_color = "grey",
+          showticklabels = c(TRUE, FALSE),
+          xlab = NULL, 
+          ylab = NULL,
+          colorbar_thickness = 10,
+          label_names = c("X-axis", "Y-axis", "Value"),
+        ) %>% layout(
+          legend = list(
+            title = list(text = "Clusters"),
+            yanchor = "middle",
+            xanchor = "left"
+          )
+        )
         
         return(p)
       }
@@ -230,24 +269,43 @@ clusteringTabServer <- function(id, dataset) {
       row_cor_matrix <- cor(t(gene_expression_z))
       row_distance_matrix <- as.dist(1 - row_cor_matrix)
       hierarchical_distance_matrix(1 - row_cor_matrix)
-      p <- pheatmap::pheatmap(gene_expression_z, 
-                             cluster_rows = TRUE,
-                             cluster_cols = FALSE,
-                             clustering_distance_rows = row_distance_matrix,
-                             #clustering_distance_rows = "correlation",
-                             #clustering_distance_cols = "correlation",
-                             fontsize_row = 10,
-                             main = "Hierarchically Clustered Matrix",
-                             treeheight_row = 30,
-                             angle_col = 315,
-                             show_rownames = FALSE,
-                             fontsize_col = 10,
-                             width = 10,
-                             height = 10)
+      # p <- pheatmap::pheatmap(gene_expression_z, 
+      #                        cluster_rows = TRUE,
+      #                        cluster_cols = FALSE,
+      #                        clustering_distance_rows = row_distance_matrix,
+      #                        #clustering_distance_rows = "correlation",
+      #                        #clustering_distance_cols = "correlation",
+      #                        fontsize_row = 10,
+      #                        main = "Hierarchically Clustered Matrix",
+      #                        treeheight_row = 30,
+      #                        angle_col = 315,
+      #                        show_rownames = FALSE,
+      #                        fontsize_col = 10,
+      #                        width = 10,
+      #                        height = 10)
+      
+      # create palette for each row
+      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
+      p <- heatmaply(
+        gene_expression_z,
+        Rowv = hclust(row_distance_matrix),
+        Colv = FALSE,
+        main = "Hierarchically Clustered Matrix",
+        colors = custom_colors(100),
+        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(0, 1)),
+        fontsize_row = 10,
+        fontsize_col = 10,
+        grid_color = "grey",
+        showticklabels = c(TRUE, FALSE),
+        xlab = NULL, 
+        ylab = NULL,
+        colorbar_thickness = 10,
+        label_names = c("X-axis", "Y-axis", "Value")
+      ) %>% layout(showlegend = FALSE)
       return(p)
     }
     
-    output$heatmap_plot <- renderPlot({
+    output$heatmap_plot <- renderPlotly({
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       gene_data <- dataset$filtered_data()
@@ -267,7 +325,8 @@ clusteringTabServer <- function(id, dataset) {
         
         gene_data <- pivot_wider(gene_data_long_grouped_sum, names_from = Group, values_from = Values, values_fill = list(value = 0))
       }
-
+      
+      # by default, show by each sample
       heatmap_df <- gene_data %>%
         inner_join(variable_genes, by = "Symbol")
       p <- create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
@@ -412,9 +471,8 @@ clusteringTabUI <- function(id) {
     fluidRow(
       column(6,
              textOutput(NS(id, "number_of_genes")),
-             add_busy_spinner(spin = "fading-circle", color = "#000000"),
              plotlyOutput(NS(id, "variable_genes_plot"), width = "80%", height = "560px")),
-      column(6, plotOutput(NS(id, "heatmap_plot"), width = "80%", height = "560px"))
+      column(6, plotlyOutput(NS(id, "heatmap_plot"), height = "700px"))
     ),
   )
   
