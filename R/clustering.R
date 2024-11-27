@@ -142,19 +142,19 @@ clusteringTabServer <- function(id, dataset) {
         result_data$Max_log2 <- log2(result_data$Max + 1)
   
         # update selected variable genes
-        variable_genes <- dplyr::filter(result_data, p_value_log10 >= input$y_cutoff, Max_log2 >= input$x_cutoff)
+        variable_genes <- dplyr::filter(result_data, p_value <= input$y_cutoff, Max_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
         
         # highlight selected variable genes in the plot
-        result_data$highlight <- ifelse(result_data$p_value_log10 >= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
+        result_data$highlight <- ifelse(result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
         
         p <- result_data %>%
           ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
-                     text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>P Value(-log10):", p_value_log10))) + 
+                     text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>-log10(P-value):", p_value_log10))) + 
           geom_point(size=3) +
           scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-          labs(x=paste0("Max Group Expression (log2 + 1)"),
-               y=paste0("P Values (-log10)")) +
+          labs(x=paste0("log2(Max) + 1"),
+               y=paste0("-log10(P-value)")) +
           theme_minimal() + 
           theme(legend.position = "right") +
           theme_linedraw(base_size=16) +
@@ -177,10 +177,10 @@ clusteringTabServer <- function(id, dataset) {
         # highlight selected variable genes in the plot
         result_data$highlight <- ifelse(result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff, "Selected", "Unselected")
         p <- result_data %>%
-          ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>max mean by log2+1:", max_mean_log2, "<br>LFC:", LFC))) + 
+          ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>log2(Max-mean) + 1:", max_mean_log2, "<br>LFC:", LFC))) + 
           geom_point(size=3) +
           scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-          labs(x=paste0("Max Mean (log2 + 1)"),
+          labs(x=paste0("log2(Max-mean) + 1"),
                y=paste0("LFC")) +
           theme_minimal() + 
           theme(legend.position = "right") +
@@ -221,46 +221,46 @@ clusteringTabServer <- function(id, dataset) {
         cor_matrix_ordered <- gene_expression_z[order, ]
         
         # built-in heatmap has high resolution, but does not have move over function
-        # p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
-        #                                                        cluster_rows = FALSE,
-        #                                                        cluster_cols = FALSE,
-        #                                                        fontsize_row = 10,
-        #                                                        main = "K-means Clustered Matrix",
-        #                                                        treeheight_row = 30,
-        #                                                        labels_row = "",
-        #                                                        angle_col = 315,
-        #                                                        fontsize_col = 10,
-        #                                                        width = 10,
-        #                                                        height = 10)
+        p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
+                                                               cluster_rows = FALSE,
+                                                               cluster_cols = FALSE,
+                                                               fontsize_row = 10,
+                                                               main = "K-means Clustered Matrix",
+                                                               treeheight_row = 30,
+                                                               labels_row = "",
+                                                               angle_col = 315,
+                                                               fontsize_col = 10,
+                                                               width = 10,
+                                                               height = 10)
         
         # set up the colors for each side bar
-        cluster_colors <- colorRampPalette(c("#F8FBFF", "#E7F8FA", "#A6DAD4", "#6EB784", "#397F36"))(max_clusters)
-        annotation_colors <- setNames(cluster_colors[annotation_df$Clusters], annotation_df$Clusters)
+        # cluster_colors <- colorRampPalette(c("#F8FBFF", "#E7F8FA", "#A6DAD4", "#6EB784", "#397F36"))(max_clusters)
+        # annotation_colors <- setNames(cluster_colors[annotation_df$Clusters], annotation_df$Clusters)
         
         # heatmaply has low resolution, but has move over function
-        p <- heatmaply(
-          cor_matrix_ordered,
-          Rowv = FALSE,
-          Colv = FALSE,
-          row_side_colors = annotation_df,
-          colors = colorRampPalette(c("#5074AF", "white", "#CA4938"))(100),
-          row_side_palette = annotation_colors,
-          main = "K-means Clustered Matrix",
-          fontsize_row = 10,
-          fontsize_col = 10,
-          grid_color = "grey",
-          showticklabels = c(TRUE, FALSE),
-          xlab = NULL, 
-          ylab = NULL,
-          colorbar_thickness = 10,
-          label_names = c("X-axis", "Y-axis", "Value"),
-        ) %>% layout(
-          legend = list(
-            title = list(text = "Clusters"),
-            yanchor = "middle",
-            xanchor = "left"
-          )
-        )
+        # p <- heatmaply(
+        #   cor_matrix_ordered,
+        #   Rowv = FALSE,
+        #   Colv = FALSE,
+        #   row_side_colors = annotation_df,
+        #   colors = colorRampPalette(c("#5074AF", "white", "#CA4938"))(100),
+        #   row_side_palette = annotation_colors,
+        #   main = "K-means Clustered Matrix",
+        #   fontsize_row = 10,
+        #   fontsize_col = 10,
+        #   grid_color = "grey",
+        #   showticklabels = c(TRUE, FALSE),
+        #   xlab = NULL, 
+        #   ylab = NULL,
+        #   colorbar_thickness = 10,
+        #   label_names = c("X-axis", "Y-axis", "Value"),
+        # ) %>% layout(
+        #   legend = list(
+        #     title = list(text = "Clusters"),
+        #     yanchor = "middle",
+        #     xanchor = "left"
+        #   )
+        # )
         
         return(p)
       }
@@ -269,43 +269,23 @@ clusteringTabServer <- function(id, dataset) {
       row_cor_matrix <- cor(t(gene_expression_z))
       row_distance_matrix <- as.dist(1 - row_cor_matrix)
       hierarchical_distance_matrix(1 - row_cor_matrix)
-      # p <- pheatmap::pheatmap(gene_expression_z, 
-      #                        cluster_rows = TRUE,
-      #                        cluster_cols = FALSE,
-      #                        clustering_distance_rows = row_distance_matrix,
-      #                        #clustering_distance_rows = "correlation",
-      #                        #clustering_distance_cols = "correlation",
-      #                        fontsize_row = 10,
-      #                        main = "Hierarchically Clustered Matrix",
-      #                        treeheight_row = 30,
-      #                        angle_col = 315,
-      #                        show_rownames = FALSE,
-      #                        fontsize_col = 10,
-      #                        width = 10,
-      #                        height = 10)
+      p <- pheatmap::pheatmap(gene_expression_z,
+                             cluster_rows = TRUE,
+                             cluster_cols = FALSE,
+                             clustering_distance_rows = row_distance_matrix,
+                             fontsize_row = 10,
+                             main = "Hierarchically Clustered Matrix",
+                             treeheight_row = 30,
+                             angle_col = 315,
+                             show_rownames = FALSE,
+                             fontsize_col = 10,
+                             width = 10,
+                             height = 10)
       
-      # create palette for each row
-      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
-      p <- heatmaply(
-        gene_expression_z,
-        Rowv = hclust(row_distance_matrix),
-        Colv = FALSE,
-        main = "Hierarchically Clustered Matrix",
-        colors = custom_colors(100),
-        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(0, 1)),
-        fontsize_row = 10,
-        fontsize_col = 10,
-        grid_color = "grey",
-        showticklabels = c(TRUE, FALSE),
-        xlab = NULL, 
-        ylab = NULL,
-        colorbar_thickness = 10,
-        label_names = c("X-axis", "Y-axis", "Value")
-      ) %>% layout(showlegend = FALSE)
       return(p)
     }
     
-    output$heatmap_plot <- renderPlotly({
+    output$heatmap_plot <- renderPlot({
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       gene_data <- dataset$filtered_data()
@@ -380,7 +360,7 @@ clusteringTabServer <- function(id, dataset) {
           actionButton(NS(id, "run_analysis"), "Run Analysis")
         })
         output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "P Values(-log10) Cutoff", value = 0.05)
+          numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05)
         })
       }
     })
@@ -461,7 +441,7 @@ clusteringTabUI <- function(id) {
     ),
     fluidRow(
       div(class = "bottom-centered",
-        column(2, numericInput(NS(id, "x_cutoff"), "Max Group Expression(log2+1) Cutoff", value = 0)),
+        column(2, numericInput(NS(id, "x_cutoff"), "log2(Max)+1 Cutoff", value = 0)),
         column(2, uiOutput(NS(id, ("y_cutoff")))),
         column(2, selectInput(NS(id, "cluster_options"), "Clustering Methods",
                               choices = c("k means" = 1, "hierarchical" = 2), selected = 1)),
@@ -472,7 +452,7 @@ clusteringTabUI <- function(id) {
       column(6,
              textOutput(NS(id, "number_of_genes")),
              plotlyOutput(NS(id, "variable_genes_plot"), width = "80%", height = "560px")),
-      column(6, plotlyOutput(NS(id, "heatmap_plot"), height = "700px"))
+      column(6, plotOutput(NS(id, "heatmap_plot"), height = "700px"))
     ),
   )
   
