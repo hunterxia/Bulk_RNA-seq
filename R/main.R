@@ -3,7 +3,7 @@ library(DT)
 library(readxl)
 library(readr)
 library(dplyr)
-
+options(shiny.maxRequestSize = 100 * 1024^2)
 mainTabUI <- function(id) {
   ns <- NS(id)
   sidebarLayout(
