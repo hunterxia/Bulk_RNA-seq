@@ -74,14 +74,7 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
     
     log2_fold_changes <- res$log2FoldChange
     p_values <- res$pvalue
-    
-    if (adjust_pvalue) {
-      adj_pvalues <- res$padj # DESeq2 already provides adjusted p-values
-    } else {
-      adj_pvalues <- res$pvalue
-    }
-    
-    
+    adj_pvalues <- res$padj  # Always get adjusted p-values from DESeq2
     
     deg_results <- data.frame(
       Symbols = rownames(exp_data),
@@ -92,10 +85,11 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
       Log2FoldChange = log2_fold_changes,
       lfcSE = res$lfcSE,
       stat = res$stat,
-      PValue = res$pvalue,
+      PValue = p_values,
       AdjPValue = adj_pvalues,
       stringsAsFactors = FALSE
     )
+    
   } else {
     # Filter expression data to include only the relevant samples
     group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE]
@@ -130,12 +124,8 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
       }
     }
     
-    # Adjust p-values if requested
-    if (adjust_pvalue) {
-      adj_pvalues <- p.adjust(p_values, method = "BH")
-    } else {
-      adj_pvalues <- p_values
-    }
+    # Always adjust p-values
+    adj_pvalues <- p.adjust(p_values, method = "BH")
     
     deg_results <- data.frame(
       Symbols = rownames(exp_data),
@@ -149,8 +139,16 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
     )
   }
   
+  # Determine which p-values to use for significance
+  if (adjust_pvalue) {
+    pvalues_for_significance <- deg_results$AdjPValue
+  } else {
+    pvalues_for_significance <- deg_results$PValue
+  }
+  
   # Determine significance
-  deg_results$Significant <- (deg_results$AdjPValue <= pvalue_cutoff) & (abs(deg_results$Log2FoldChange) >= log2(fc_cutoff))
+  deg_results$Significant <- (pvalues_for_significance <= pvalue_cutoff) &
+    (abs(deg_results$Log2FoldChange) >= log2(fc_cutoff))
   
   # Categorize regulation status
   deg_results$Regulation <- "Not Significant"

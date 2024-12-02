@@ -48,7 +48,11 @@ qcTabServer <- function(id, dataset) {
       df_long$LogValue <- log1p(df_long$Values)
       
       # Cut the LogValue into bins
-      df_long$Bins <- cut(df_long$LogValue, breaks = seq(0, 16.5, by = input$bin_size), right = FALSE)
+      df_long$Bins <- cut(df_long$LogValue, 
+                          breaks = seq(0, 16.5, by = input$bin_size), 
+                          right = TRUE, 
+                          include.lowest = FALSE)
+      
       
       # Calculate frequencies
       bins_df <- df_long %>%
@@ -125,7 +129,11 @@ qcTabServer <- function(id, dataset) {
       df_long$LogValue <- log1p(df_long$Values)
       
       # Cut the LogValue into bins
-      df_long$Bins <- cut(df_long$LogValue, breaks = seq(0, 16.5, by = input$bin_size), right = FALSE)
+      df_long$Bins <- cut(df_long$LogValue, 
+                          breaks = seq(0, 16.5, by = input$bin_size), 
+                          right = TRUE, 
+                          include.lowest = FALSE)
+      
       
       # Calculate frequencies
       bins_df <- df_long %>%
@@ -316,7 +324,7 @@ qcTabUI <- function(id) {
     ),
     fluidRow(class = "bottom-centered",
              column(2,
-                    sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.25)
+                    sliderInput(NS(id, "bin_size"), "Bin size", min = 0, max = 1, value = 0.25, step = 0.05)
              )
     ),
     fluidRow(
