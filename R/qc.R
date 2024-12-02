@@ -87,7 +87,8 @@ qcTabServer <- function(id, dataset) {
           y = "Gene Counts",
           color = NULL
         ) +
-        scale_y_continuous(limits = c(0, max_freq))+
+        #scale_y_continuous(limits = c(0, max_freq))+
+        scale_y_continuous(limits = c(0, 4000))+
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
@@ -164,7 +165,8 @@ qcTabServer <- function(id, dataset) {
           y = "Gene Counts",
           color = NULL
         ) +
-        scale_y_continuous(limits = c(0, max_freq)) +
+        #scale_y_continuous(limits = c(0, max_freq)) +
+        scale_y_continuous(limits = c(0, 4000)) +
         guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
         theme(
           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
