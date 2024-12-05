@@ -15,7 +15,13 @@ qcTabServer <- function(id, dataset) {
       df_long <- df_long %>%
         left_join(groups, by = "Samples")
       df_long$LogValue <- log1p(df_long$Values)
-      df_long$Bins <- cut(df_long$LogValue, breaks = seq(0, 16.5, by = input$bin_size), right = FALSE)
+      # df_long$Bins <- cut(df_long$LogValue, breaks = seq(0, 16.5, by = input$bin_size), right = FALSE)
+      
+      df_long$Bins <- cut(df_long$LogValue, 
+                          breaks = seq(0, max(df_long$LogValue, na.rm = TRUE), 
+                                       by = input$bin_size), 
+                          right = TRUE, 
+                          include.lowest = FALSE)
       
       bins_df <- df_long %>%
         group_by(Bins, Samples, EXPERIMENTAL_GROUP) %>%
@@ -44,12 +50,16 @@ qcTabServer <- function(id, dataset) {
       df_long <- df_long %>%
         left_join(groups, by = "Samples")
       
+      # remove all rows with count is 0
+      df_long <- df_long[df_long$Values != 0, ]
+      
       # Log normalize the values
       df_long$LogValue <- log1p(df_long$Values)
       
       # Cut the LogValue into bins
       df_long$Bins <- cut(df_long$LogValue, 
-                          breaks = seq(0, 16.5, by = input$bin_size), 
+                          breaks = seq(0, max(df_long$LogValue, na.rm = TRUE), 
+                                       by = input$bin_size), 
                           right = TRUE, 
                           include.lowest = FALSE)
       
@@ -125,12 +135,16 @@ qcTabServer <- function(id, dataset) {
       df_long <- df_long %>%
         left_join(groups, by = "Samples")
       
+      # remove all rows with count is 0
+      df_long <- df_long[df_long$Values != 0, ]
+      
       # Log normalize the values
       df_long$LogValue <- log1p(df_long$Values)
-      
+ 
       # Cut the LogValue into bins
       df_long$Bins <- cut(df_long$LogValue, 
-                          breaks = seq(0, 16.5, by = input$bin_size), 
+                          breaks = seq(0, max(df_long$LogValue, na.rm = TRUE), 
+                                       by = input$bin_size), 
                           right = TRUE, 
                           include.lowest = FALSE)
       

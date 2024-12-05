@@ -360,7 +360,7 @@ clusteringTabServer <- function(id, dataset) {
           actionButton(NS(id, "run_analysis"), "Run Analysis")
         })
         output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05)
+          numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05, min = 0, max = 1)
         })
       }
     })
