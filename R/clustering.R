@@ -19,9 +19,26 @@ clusteringTabServer <- function(id, dataset) {
       isolate({
         showModal(modalDialog("Running analysis, please wait...", footer = NULL))
         # Only recalculates when the above reactive values change
-        samples_anova_results(calculate_variable_genes())
+        result <- calculate_variable_genes()
+        if (is.null(result)) {
+          removeModal()
+          showModal(modalDialog(
+            title = "Error",
+            "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
+            footer = tagList(
+              actionButton(NS(id, "close_modal"), "Close", class = "btn btn-primary")
+            )))
+        }
+        else {
+          samples_anova_results(result)
+        }
       })
 
+    })
+
+    # Close warning modal
+    observeEvent(input$close_modal, {
+      removeModal()
     })
 
     # calculate the ANOVA value
@@ -49,6 +66,11 @@ clusteringTabServer <- function(id, dataset) {
       # Join the dataframes to map Exp_Grp values to Conditions in gene_data_long
       gene_data_long <- gene_data_long %>%
         left_join(groups, by = "Condition")
+
+      # Check if EXP_GROUP has at least 2 levels
+      if (length(levels(factor(gene_data_long$EXPERIMENTAL_GROUP))) < 2) {
+        return(NULL)
+      }
 
       group_max <- gene_data_long %>%
         group_by(Symbol, EXPERIMENTAL_GROUP) %>%
@@ -475,9 +497,9 @@ clusteringTabUI <- function(id) {
              )
       ),
       column(8,
-                textOutput(NS(id, "number_of_genes")),
-             plotlyOutput(NS(id, "variable_genes_plot"), width = "100%", height = "400px"),
-             plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "400px")
+             textOutput(NS(id, "number_of_genes")),
+             plotlyOutput(NS(id, "variable_genes_plot"), width = "600px", height = "600px"),
+             plotOutput(NS(id, "heatmap_plot"), width = "600px", height = "600px")
       )
     )
   )
