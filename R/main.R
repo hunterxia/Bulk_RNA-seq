@@ -39,6 +39,7 @@ mainTabServer <- function(id) {
     filtered_data <- reactiveVal()
     selected_groups <- reactiveVal()
     selected_samples_data <- reactiveVal()
+    all_groups_selected <- reactiveVal(FALSE)
     
     # Function to make safe IDs
     make_safe_id <- function(name) {
@@ -59,40 +60,76 @@ mainTabServer <- function(id) {
     # Reading and storing group data
     observeEvent(input$groups_input, {
       req(input$groups_input)
-      grp_data <- read_data(input$groups_input)
-      groups_data(grp_data)
       
-      # Dynamically render the groups and samples with sanitized IDs
-      output$sample_selection_ui <- renderUI({
-        req(groups_data())
-        grp_data <- groups_data()
+      tryCatch({
+        grp_data <- read_data(input$groups_input)
         
-        tagList(
-          tags$h4("Toggle Groups"),
+        # Validate column headers
+        required_columns <- c("Sample", "Group", "Color")
+        if (!identical(colnames(grp_data), required_columns)) {
+          stop("Invalid column headers")
+        }
+        
+        groups_data(grp_data)
+        all_groups_selected(FALSE)
+        
+      }, error = function(e) {
+        showNotification(
+          "Invalid groups file format. Required columns: Sample, Group, Color (exact order and names)",
+          type = "error",
+          duration = 10
+        )
+        groups_data(NULL)  # Clear invalid data
+      })
+    })
+    
+    # Dynamically render the groups and samples
+    output$sample_selection_ui <- renderUI({
+      req(groups_data())
+      grp_data <- groups_data()
+      
+      tagList(
+        tags$h4("Toggle Groups"),
+        actionButton(ns("toggle_all_groups"), 
+                     label = ifelse(all_groups_selected(), 
+                                    "Deselect All Groups", 
+                                    "Select All Groups")),
+        lapply(unique(grp_data[['Group']]), function(group) {
+          group_id <- make_safe_id(paste0("group_", group))
+          samples_in_group <- grp_data %>%
+            dplyr::filter(Group == group) %>%
+            pull(Sample)
           
-          lapply(unique(grp_data[['Group']]), function(group) {
-            group_id <- make_safe_id(paste0("group_", group))
-            samples_in_group <- grp_data %>%
-              dplyr::filter(Group == group) %>%
-              pull(Sample)
-            
-            tagList(
-              checkboxInput(ns(group_id), group, value = FALSE),  # Group checkbox
-              conditionalPanel(
-                condition = sprintf("input['%s'] == true", ns(group_id)),
-                tagList(
-                  lapply(samples_in_group, function(sample) {
-                    sample_id <- make_safe_id(paste0("sample_", sample))
-                    div(style = "margin-left: 20px;",
-                        checkboxInput(ns(sample_id), sample, value = TRUE)
-                    )
-                  })
-                )
+          tagList(
+            checkboxInput(ns(group_id), group, value = FALSE),
+            conditionalPanel(
+              condition = sprintf("input['%s'] == true", ns(group_id)),
+              tagList(
+                lapply(samples_in_group, function(sample) {
+                  sample_id <- make_safe_id(paste0("sample_", sample))
+                  div(style = "margin-left: 20px;",
+                      checkboxInput(ns(sample_id), sample, value = TRUE)
+                  )
+                })
               )
             )
-          })
-        )
-      })
+          )
+        })
+      )
+    })
+    
+    # Toggle All Groups observer
+    observeEvent(input$toggle_all_groups, {
+      req(groups_data())
+      grp_data <- groups_data()
+      all_groups <- unique(grp_data[['Group']])
+      new_state <- !all_groups_selected()
+      
+      for (group in all_groups) {
+        group_id <- make_safe_id(paste0("group_", group))
+        updateCheckboxInput(session, group_id, value = new_state)
+      }
+      all_groups_selected(new_state)
     })
     
     # Reading and storing expression data
@@ -175,5 +212,5 @@ mainTabServer <- function(id) {
       selected_groups = selected_groups,
       selected_samples_data = selected_samples_data
     ))
-  })
-}
+  })  
+}     
