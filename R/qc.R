@@ -4,6 +4,7 @@ library(ggplot2)
 library(tidyr)
 library(shinyWidgets)
 library(plotly)
+library(logger)
 
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {

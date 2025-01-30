@@ -4,6 +4,7 @@ library(plotly)
 library(DT)
 library(dplyr)
 library(DESeq2)
+library(logger)
 
 PairwiseComparisonTabUI <- function(id) {
   ns <- NS(id)
@@ -57,20 +58,32 @@ PairwiseComparisonTabUI <- function(id) {
 }
 
 perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_type, fc_cutoff, pvalue_cutoff, adjust_pvalue) {
+  log_debug("Starting DEG analysis")
+  log_trace("Input parameters: FC cutoff={fc_cutoff}, P-value={pvalue_cutoff}")
+
   if (test_type == "deseq") {
     exp_data_filtered <- exp_data[, c(group1_samples, group2_samples)]
     exp_data_filtered <- round(exp_data_filtered)
 
     condition <- factor(c(rep("group1", length(group1_samples)), rep("group2", length(group2_samples))))
 
-    dds <- DESeqDataSetFromMatrix(
-      countData = exp_data_filtered,
-      colData = data.frame(condition = condition),
-      design = ~condition
-    )
+    tryCatch({
+      dds <- DESeqDataSetFromMatrix(
+        countData = exp_data_filtered,
+        colData = data.frame(condition = condition),
+        design = ~condition
+      )
+      log_debug("DESeq object created with {ncol(dds)} samples")
 
-    dds <- DESeq(dds)
-    res <- results(dds)
+      dds <- DESeq(dds)
+      log_debug("DESeq analysis completed: {length(resultsNames(dds))} coefficients")
+
+      res <- results(dds)
+      log_trace("DESeq results range: log2FC [{min(res$log2FoldChange)}, {max(res$log2FoldChange)}]")
+    }, error = function(e) {
+      log_error("DESeq2 failed: {e$message}")
+      stop(e)
+    })
 
     log2_fold_changes <- res$log2FoldChange
     p_values <- res$pvalue
@@ -246,6 +259,7 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
 PairwiseComparisonTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+    log_info("Initializing Pairwise Comparison Tab")
 
     # Access the processed data from the dataset reactive
     expression_data <- reactive(dataset$filtered_data())
@@ -261,6 +275,7 @@ PairwiseComparisonTabServer <- function(id, dataset) {
 
     observe({
       req(selected_groups())
+      log_debug("Updating group selections: {paste(seleted_groups(), collapse = ', ')}")
       grp_names <- selected_groups()
       if (is.null(grp_names)) {
         return()
@@ -273,75 +288,86 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       req(expression_data(), groups_data())
       exp_data <- expression_data()
       grp_data <- groups_data()
+      log_info("Running DEG analysis")
+      log_debug("Parameters: Group1={input$select_group1}, Group2={input$select_group2}, Test={input$test_type}")
+      start_time <- Sys.time()
 
       showModal(modalDialog("Running analysis, please wait...", footer = NULL))
 
-      # Map group selections to sample names
-      group1_samples <- grp_data$Sample[grp_data$Group == input$select_group1]
-      group2_samples <- grp_data$Sample[grp_data$Group == input$select_group2]
+      tryCatch({
+        # Map group selections to sample names
+        group1_samples <- grp_data$Sample[grp_data$Group == input$select_group1]
+        group2_samples <- grp_data$Sample[grp_data$Group == input$select_group2]
 
-      # Ensure the sample names match the column names in the expression data
-      group1_samples <- intersect(group1_samples, colnames(exp_data))
-      group2_samples <- intersect(group2_samples, colnames(exp_data))
+        # Ensure the sample names match the column names in the expression data
+        group1_samples <- intersect(group1_samples, colnames(exp_data))
+        group2_samples <- intersect(group2_samples, colnames(exp_data))
 
-      # Perform the DEG analysis
-      res <- perform_DEG_analysis(
-        exp_data, group1_samples, group2_samples,
-        input$test_type, input$fc_cutoff, input$pvalue_cutoff, input$adjust_pvalue
-      )
-
-      # Store the results in a reactive value
-      deg_results(res)
-
-      # Enable download buttons after analysis
-      shinyjs::enable("download_all")
-      shinyjs::enable("download_filtered")
-
-      # Separate results into positive and negative DEG tables
-      pos_results <- res[res$Regulation == "Upregulated",]
-      neg_results <- res[res$Regulation == "Downregulated",]
-
-      # Calculate and display gene counts
-      total_genes <- nrow(res)
-      up_genes <- sum(res$Regulation == "Upregulated", na.rm = TRUE)
-      down_genes <- sum(res$Regulation == "Downregulated", na.rm = TRUE)
-
-      # Update gene counts
-      output$volcano_gene_counts <- renderText({
-        paste(
-          "Total genes:", total_genes,
-          "| Upregulated genes:", up_genes,
-          "| Downregulated genes:", down_genes
+        log_info("Starting DEG analysis ({input$test_type})")
+        # Perform the DEG analysis
+        res <- perform_DEG_analysis(
+          exp_data, group1_samples, group2_samples,
+          input$test_type, input$fc_cutoff, input$pvalue_cutoff, input$adjust_pvalue
         )
-      })
 
-      output$ma_gene_counts <- renderText({
-        paste(
-          "Total genes:", total_genes,
-          "| Upregulated genes:", up_genes,
-          "| Downregulated genes:", down_genes
-        )
-      })
+        # Store the results in a reactive value
+        deg_results(res)
 
-      # Update outputs: Volcano Plot, MA Plot, DEG Tables
-      output$volcano_plot <- renderPlotly({
-        on.exit(removeModal())
-        generate_volcano_plot(res, input$select_group1, input$select_group2)
-      })
+        # Enable download buttons after analysis
+        shinyjs::enable("download_all")
+        shinyjs::enable("download_filtered")
 
-      output$ma_plot <- renderPlotly({
-        on.exit(removeModal())
-        generate_ma_plot(exp_data, group1_samples, group2_samples, res, input$select_group1, input$select_group2)
-      })
+        # Separate results into positive and negative DEG tables
+        pos_results <- res[res$Regulation == "Upregulated",]
+        neg_results <- res[res$Regulation == "Downregulated",]
 
-      output$pos_deg_table <- renderDT({
-        datatable(pos_results, options = list(pageLength = 10), rownames = FALSE)
-      })
+        # Calculate and display gene counts
+        total_genes <- nrow(res)
+        up_genes <- sum(res$Regulation == "Upregulated", na.rm = TRUE)
+        down_genes <- sum(res$Regulation == "Downregulated", na.rm = TRUE)
 
-      output$neg_deg_table <- renderDT({
-        datatable(neg_results, options = list(pageLength = 10), rownames = FALSE)
+        # Update gene counts
+        output$volcano_gene_counts <- renderText({
+          paste(
+            "Total genes:", total_genes,
+            "| Upregulated genes:", up_genes,
+            "| Downregulated genes:", down_genes
+          )
+        })
+
+        output$ma_gene_counts <- renderText({
+          paste(
+            "Total genes:", total_genes,
+            "| Upregulated genes:", up_genes,
+            "| Downregulated genes:", down_genes
+          )
+        })
+
+        # Update outputs: Volcano Plot, MA Plot, DEG Tables
+        output$volcano_plot <- renderPlotly({
+          on.exit(removeModal())
+          generate_volcano_plot(res, input$select_group1, input$select_group2)
+        })
+
+        output$ma_plot <- renderPlotly({
+          on.exit(removeModal())
+          generate_ma_plot(exp_data, group1_samples, group2_samples, res, input$select_group1, input$select_group2)
+        })
+
+        output$pos_deg_table <- renderDT({
+          datatable(pos_results, options = list(pageLength = 10), rownames = FALSE)
+        })
+
+        output$neg_deg_table <- renderDT({
+          datatable(neg_results, options = list(pageLength = 10), rownames = FALSE)
+        })
+      }, error = function(e) {
+        log_error("Analysis failed: {e$message}")
+      }, finally = {
+        log_info("Total execution time: {round(Sys.time() - start_time, 2)}s")
       })
     })
+
 
     # Download handlers for DEG results
     output$download_all <- downloadHandler(

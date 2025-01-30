@@ -5,9 +5,11 @@ library(pheatmap)
 library(plotly)
 library(dplyr)
 library(heatmaply)
+library(logger)
 
 clusteringTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
+
     # Reactive values to store data
     selected_variable_genes <- reactiveVal()
     samples_anova_results <- reactiveVal()
@@ -17,21 +19,42 @@ clusteringTabServer <- function(id, dataset) {
     # Apply filters based on user inputs
     observeEvent(input$run_analysis, {
       isolate({
+        log_info("Running analysis")
         showModal(modalDialog("Running analysis, please wait...", footer = NULL))
         # Only recalculates when the above reactive values change
-        result <- calculate_variable_genes()
-        if (is.null(result)) {
-          removeModal()
-          showModal(modalDialog(
+        tryCatch({
+          result <- calculate_variable_genes()
+          if(is.null(result)) {
+            log_warn("Experimental group has less than 2 levels")
+            removeModal()
+            showModal(modalDialog(
             title = "Error",
             "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
             footer = tagList(
               actionButton(NS(id, "close_modal"), "Close", class = "btn btn-primary")
             )))
-        }
-        else {
-          samples_anova_results(result)
-        }
+          }
+          else {
+            log_info("ANOVA completed: {nrow(result)} genes processed")
+            samples_anova_results(result)
+          }
+        }, error = function(e) {
+          log_error("Analysis failed: {e$message}")
+          stop(e)
+        })
+        # result <- calculate_variable_genes()
+        # if (is.null(result)) {
+        #   removeModal()
+        #   showModal(modalDialog(
+        #     title = "Error",
+        #     "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
+        #     footer = tagList(
+        #       actionButton(NS(id, "close_modal"), "Close", class = "btn btn-primary")
+        #     )))
+        # }
+        # else {
+        #   samples_anova_results(result)
+        # }
       })
 
     })

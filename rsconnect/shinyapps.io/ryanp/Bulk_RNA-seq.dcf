@@ -1,0 +1,12 @@
+name: Bulk_RNA-seq
+title: Bulk_RNA-seq
+username: ryanp
+account: ryanp
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13861530
+bundleId: 9725042
+url: https://ryanp.shinyapps.io/Bulk_RNA-seq/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

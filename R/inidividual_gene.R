@@ -2,6 +2,7 @@ library(shiny)
 library(ggplot2)
 library(plotly)
 library(DT)
+library(logger)
 
 individualGeneTabUI <- function(id) {
   ns <- NS(id)
