@@ -60,9 +60,27 @@ mainTabServer <- function(id) {
     # Reading and storing group data
     observeEvent(input$groups_input, {
       req(input$groups_input)
-      grp_data <- read_data(input$groups_input)
-      groups_data(grp_data)
-      all_groups_selected(FALSE)
+      
+      tryCatch({
+        grp_data <- read_data(input$groups_input)
+        
+        # Validate column headers
+        required_columns <- c("Sample", "Group", "Color")
+        if (!identical(colnames(grp_data), required_columns)) {
+          stop("Invalid column headers")
+        }
+        
+        groups_data(grp_data)
+        all_groups_selected(FALSE)
+        
+      }, error = function(e) {
+        showNotification(
+          "Invalid groups file format. Required columns: Sample, Group, Color (exact order and names)",
+          type = "error",
+          duration = 10
+        )
+        groups_data(NULL)  # Clear invalid data
+      })
     })
     
     # Dynamically render the groups and samples
