@@ -13,6 +13,10 @@ source("./R/pca_correlation.R")
 source("./R/pairwise _comparison.R")
 source("./R/clustering.R")
 source("./R/inidividual_gene.R")
+source("logger.R")
+
+init_logger()
+
 server <- function(input, output, session) {
   session$onSessionEnded(function() {
     while (!is.null(dev.list())) {
