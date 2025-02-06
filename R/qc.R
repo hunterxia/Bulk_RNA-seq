@@ -5,14 +5,26 @@ library(tidyr)
 library(shinyWidgets)
 library(plotly)
 library(logger)
+library(data.table)
+library(future)
+library(logger)
 
 qcTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
 
+    expression_data_cache <- reactiveVal(NULL)
+
+    observe({
+      log_info("Loading expression data into cache asynchronously")
+      expression_data_cache(dataset$expression_data())
+    })
+
     grouped <- reactive({ TRUE })
 
     get_max_freq <- function(df, groups) {
-      df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      #df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      df_long <- as.data.table(df) %>%
+        melt(id.vars = c("Symbol", "Gene_Symbol"), variable.name = "Samples", value.name = "Values")
       df_long <- df_long %>%
         left_join(groups, by = "Samples")
       df_long$LogValue <- log1p(df_long$Values)
@@ -32,7 +44,9 @@ qcTabServer <- function(id, dataset) {
     }
 
     create_hist_plot <- function() {
-      df <- dataset$expression_data()
+      pdf(NULL)
+
+      df <- expression_data_cache()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
 
@@ -45,7 +59,9 @@ qcTabServer <- function(id, dataset) {
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
 
       # Pivot data to long format
-      df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      #df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      df_long <- as.data.table(df) %>%
+        melt(id.vars = c("Symbol", "Gene_Symbol"), variable.name = "Samples", value.name = "Values")
 
       # Join groups data to assign experimental groups
       df_long <- df_long %>%
@@ -89,7 +105,8 @@ qcTabServer <- function(id, dataset) {
         color_label <- "Samples"
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
-      max_freq <- get_max_freq(dataset$expression_data(), groups)
+      #max_freq <- get_max_freq(dataset$expression_data(), groups)
+      max_freq <- get_max_freq(expression_data_cache(), groups)
 
       # Plot
       p <- bins_df %>%
@@ -119,14 +136,23 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(0, 0, 0, 0, "pt"),
           legend.key.size = unit(0.5, "cm")
         )
-      ggplotly(p, tooltip = "text") %>%
+      # ggplotly(p, tooltip = "text") %>%
+      #   layout(
+      #     width = 400,
+      #     height = 400
+      #   )
+      plotly_obj <- ggplotly(p, tooltip = "text") %>%
         layout(
           width = 400,
           height = 400
         )
+      dev.off()
+      plotly_obj
     }
 
     create_filtered_hist_plot <- function() {
+      pdf(NULL)
+
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
 
@@ -136,7 +162,9 @@ qcTabServer <- function(id, dataset) {
       colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
 
       # Pivot data to long format
-      df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      #df_long <- pivot_longer(df, cols = -c(Symbol, Gene_Symbol), names_to = "Samples", values_to = "Values")
+      df_long <- as.data.table(df) %>%
+        melt(id.vars = c("Symbol", "Gene_Symbol"), variable.name = "Samples", value.name = "Values")
 
       # Join groups data to assign experimental groups
       df_long <- df_long %>%
@@ -181,7 +209,8 @@ qcTabServer <- function(id, dataset) {
         scale_color <- scale_color_viridis(discrete = TRUE)
       }
 
-      max_freq <- get_max_freq(dataset$expression_data(), groups)
+      #max_freq <- get_max_freq(dataset$expression_data(), groups)
+      max_freq <- get_max_freq(expression_data_cache(), groups)
 
       # Plot
       p <- bins_df %>%
@@ -211,14 +240,23 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(0, 0, 0, 0, "pt"),
           legend.key.size = unit(0.5, "cm")
         )
-      ggplotly(p, tooltip = "text") %>%
+      # ggplotly(p, tooltip = "text") %>%
+      #   layout(
+      #     width = 400,
+      #     height = 400
+      #   )
+      plotly_obj <- ggplotly(p, tooltip = "text") %>%
         layout(
           width = 400,
           height = 400
         )
+      dev.off()
+      plotly_obj
     }
 
     create_expressed_gene_plot <- function(df, groups, plot_title) {
+      pdf(NULL)
+
       numeric_data <- df[, -c(1, 2)]
 
       # Function to count non-zero values per sample
@@ -253,7 +291,8 @@ qcTabServer <- function(id, dataset) {
         color_label <- "Samples"
         fill_color <- scale_fill_viridis(discrete = TRUE)
       }
-      unfiltered_max <- max(sapply(dataset$expression_data()[, -c(1, 2)], function(column) sum(column > 0)))
+      #unfiltered_max <- max(sapply(dataset$expression_data()[, -c(1, 2)], function(column) sum(column > 0)))
+      unfiltered_max <- max(sapply(expression_data_cache()[, -c(1, 2)], function(column) sum(column > 0)))
 
       # Plot
       p <- ggplot(counts_df, aes(x = Samples, y = Gene_Count, fill = color_mapping,
@@ -279,26 +318,36 @@ qcTabServer <- function(id, dataset) {
           legend.margin = margin(0, 0, 0, 0, "pt"),
           legend.key.size = unit(0.5, "cm")
         )
-      ggplotly(p, tooltip = "text") %>%
+      # ggplotly(p, tooltip = "text") %>%
+      #   layout(
+      #     width = 400,
+      #     height = 400
+      #   )
+      plotly_obj <- ggplotly(p, tooltip = "text") %>%
         layout(
           width = 400,
           height = 400
         )
+      dev.off()
+      plotly_obj
     }
 
     output$hist <- renderPlotly({
-      req(dataset$expression_data())
+      #req(dataset$expression_data())
+      req(expression_data_cache())
       create_hist_plot()
     })
 
     output$filtered_hist <- renderPlotly({
-      req(dataset$expression_data())
+      #req(dataset$expression_data())
+      req(expression_data_cache())
       create_filtered_hist_plot()
     })
 
     output$grouped_hist <- renderPlotly({
       req(dataset$expression_data(), dataset$selected_samples_data())
-      df <- dataset$expression_data()
+      #df <- dataset$expression_data()
+      df <- expression_data_cache()
       selected_samples <- dataset$selected_samples_data()
       groups <- dataset$groups_data()
       df <- df %>%
@@ -349,6 +398,7 @@ qcTabServer <- function(id, dataset) {
 
   })
 }
+
 
 qcTabUI <- function(id) {
   fluidPage(
