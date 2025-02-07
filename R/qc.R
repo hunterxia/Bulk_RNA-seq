@@ -44,7 +44,7 @@ qcTabServer <- function(id, dataset) {
     }
 
     create_hist_plot <- function() {
-      pdf(NULL)
+      # pdf(NULL)
 
       df <- expression_data_cache()
       groups <- dataset$groups_data()
@@ -146,7 +146,7 @@ qcTabServer <- function(id, dataset) {
           width = 400,
           height = 400
         )
-      dev.off()
+      # dev.off()
       plotly_obj
     }
 
