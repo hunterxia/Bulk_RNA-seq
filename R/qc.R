@@ -87,66 +87,98 @@ qcTabServer <- function(id, dataset) {
         summarise(Freq = n(), .groups = 'drop')
 
       # Assign colors based on input$grouped
-      if (TRUE) {
-        color_mapping <- bins_df$EXPERIMENTAL_GROUP
-        color_label <- "Experimental Group"
-
-        if ("Color" %in% colnames(groups)) {
-          color_values <- groups %>%
-            distinct(EXPERIMENTAL_GROUP, Color) %>%
-            deframe()
-          scale_color <- scale_color_manual(values = color_values)
-        } else {
-          scale_color <- scale_color_viridis(discrete = TRUE)
-        }
-
-      } else {
-        color_mapping <- bins_df$Samples
-        color_label <- "Samples"
-        scale_color <- scale_color_viridis(discrete = TRUE)
-      }
-      #max_freq <- get_max_freq(dataset$expression_data(), groups)
-      max_freq <- get_max_freq(expression_data_cache(), groups)
-
-      # Plot
-      p <- bins_df %>%
-        ggplot(aes(x = Bins, y = Freq, group = Samples, color = color_mapping,
-                   text = paste("Sample:", Samples, "<br>Group:", EXPERIMENTAL_GROUP, "<br>Interval:", Bins, "<br>Count:", Freq))) +
-        geom_line() +
-        scale_color +
-        ggtitle("Histogram before filtering") +
-        theme_ipsum() +
-        labs(
-          x = NULL,
-          y = "Gene Counts",
-          color = NULL
-        ) +
-        #scale_y_continuous(limits = c(0, max_freq))+
-        scale_y_continuous(limits = c(0, 4000)) +
-        guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
-        theme(
-          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-          axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
-          axis.title.y = element_text(hjust = 0.5),
-          panel.border = element_rect(colour = "black", fill = NA, size = 1),
-          legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
-          legend.position = c(1, 1),
-          legend.justification = c("right", "top"),
-          legend.box.just = "right",
-          legend.margin = margin(0, 0, 0, 0, "pt"),
-          legend.key.size = unit(0.5, "cm")
-        )
-      # ggplotly(p, tooltip = "text") %>%
+      # if (TRUE) {
+      #   color_mapping <- bins_df$EXPERIMENTAL_GROUP
+      #   color_label <- "Experimental Group"
+      #
+      #   if ("Color" %in% colnames(groups)) {
+      #     color_values <- groups %>%
+      #       distinct(EXPERIMENTAL_GROUP, Color) %>%
+      #       deframe()
+      #     scale_color <- scale_color_manual(values = color_values)
+      #   } else {
+      #     scale_color <- scale_color_viridis(discrete = TRUE)
+      #   }
+      #
+      # } else {
+      #   color_mapping <- bins_df$Samples
+      #   color_label <- "Samples"
+      #   scale_color <- scale_color_viridis(discrete = TRUE)
+      # }
+      # #max_freq <- get_max_freq(dataset$expression_data(), groups)
+      # max_freq <- get_max_freq(expression_data_cache(), groups)
+      #
+      # # Plot
+      # p <- bins_df %>%
+      #   ggplot(aes(x = Bins, y = Freq, group = Samples, color = color_mapping,
+      #              text = paste("Sample:", Samples, "<br>Group:", EXPERIMENTAL_GROUP, "<br>Interval:", Bins, "<br>Count:", Freq))) +
+      #   geom_line() +
+      #   scale_color +
+      #   ggtitle("Histogram before filtering") +
+      #   theme_ipsum() +
+      #   labs(
+      #     x = NULL,
+      #     y = "Gene Counts",
+      #     color = NULL
+      #   ) +
+      #   #scale_y_continuous(limits = c(0, max_freq))+
+      #   scale_y_continuous(limits = c(0, 4000)) +
+      #   guides(color = guide_legend(nrow = 6, byrow = TRUE, title.position = "top")) +
+      #   theme(
+      #     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      #     axis.title.x = element_text(vjust = 0.5, hjust = 0.5),
+      #     axis.title.y = element_text(hjust = 0.5),
+      #     panel.border = element_rect(colour = "black", fill = NA, size = 1),
+      #     legend.box.background = element_rect(colour = "black", fill = NA, size = 0.2),
+      #     legend.position = c(1, 1),
+      #     legend.justification = c("right", "top"),
+      #     legend.box.just = "right",
+      #     legend.margin = margin(0, 0, 0, 0, "pt"),
+      #     legend.key.size = unit(0.5, "cm")
+      #   )
+      # # ggplotly(p, tooltip = "text") %>%
+      # #   layout(
+      # #     width = 400,
+      # #     height = 400
+      # #   )
+      # plotly_obj <- ggplotly(p, tooltip = "text") %>%
       #   layout(
       #     width = 400,
       #     height = 400
       #   )
-      plotly_obj <- ggplotly(p, tooltip = "text") %>%
-        layout(
-          width = 400,
-          height = 400
-        )
       # dev.off()
+
+      custom_colors <- NULL
+      if ("Color" %in% colnames(groups)) {
+        color_values <- groups %>%
+          distinct(EXPERIMENTAL_GROUP, Color) %>%
+          deframe()
+        custom_colors <- unname(color_values)
+      }
+
+      plotly_obj <- plot_ly(
+        data = bins_df,
+        x = ~Bins,
+        y = ~Freq,
+        type = 'scatter',
+        mode = 'lines',
+        split = ~Samples,
+        color = ~EXPERIMENTAL_GROUP,
+        colors = if (!is.null(custom_colors)) custom_colors else "viridis",
+        text = ~paste("Sample:", Samples,
+                      "<br>Group:", EXPERIMENTAL_GROUP,
+                      "<br>Interval:", Bins,
+                      "<br>Count:", Freq),
+        hoverinfo = "text"
+      ) %>%
+        layout(
+          title = "Histogram before filtering",
+          xaxis = list(title = NULL, tickangle = 90),
+          yaxis = list(title = "Gene Counts", range = c(0, 4000)),
+          width = 400,
+          height = 400,
+          legend = list(orientation = "v", x = 1, y = 1)
+        )
       plotly_obj
     }
 
