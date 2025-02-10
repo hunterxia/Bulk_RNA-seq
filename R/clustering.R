@@ -24,15 +24,15 @@ clusteringTabServer <- function(id, dataset) {
         # Only recalculates when the above reactive values change
         tryCatch({
           result <- calculate_variable_genes()
-          if(is.null(result)) {
+          if (is.null(result)) {
             log_warn("Experimental group has less than 2 levels")
             removeModal()
             showModal(modalDialog(
-            title = "Error",
-            "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
-            footer = tagList(
-              actionButton(NS(id, "close_modal"), "Close", class = "btn btn-primary")
-            )))
+              title = "Error",
+              "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
+              footer = tagList(
+                actionButton(NS(id, "close_modal"), "Close", class = "btn btn-primary")
+              )))
           }
           else {
             log_info("ANOVA completed: {nrow(result)} genes processed")
@@ -177,6 +177,69 @@ clusteringTabServer <- function(id, dataset) {
     }
 
     # render variable genes plot
+    # output$variable_genes_plot <- renderPlotly({
+    #   on.exit(removeModal())
+    #
+    #   # render by ANOVA
+    #   if (input$y_axis_var == 1) {
+    #     req(samples_anova_results())
+    #     result_data <- samples_anova_results()
+    #     result_data$Max_log2 <- log2(result_data$Max + 1)
+    #
+    #     # update selected variable genes
+    #     variable_genes <- dplyr::filter(result_data, p_value <= input$y_cutoff, Max_log2 >= input$x_cutoff)
+    #     selected_variable_genes(variable_genes)
+    #
+    #     # highlight selected variable genes in the plot
+    #     result_data$highlight <- ifelse(result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
+    #
+    #     p <- result_data %>%
+    #       ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
+    #                  text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>-log10(P-value):", p_value_log10))) +
+    #       geom_point(size = 3) +
+    #       scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
+    #       labs(x = paste0("log2(Max) + 1"),
+    #            y = paste0("-log10(P-value)")) +
+    #       theme_minimal() +
+    #       theme(legend.position = "right") +
+    #       theme_linedraw(base_size = 16) +
+    #       theme(panel.grid.major = element_blank(),
+    #             panel.grid.minor = element_blank(),
+    #             legend.title = element_blank(),
+    #             legend.text = element_text(size = 10),
+    #             legend.position = "right")
+    #   } else {
+    #     # render by LFC
+    #     if (input$LFC_group_1 == input$LFC_group_2) {
+    #       return()
+    #     }
+    #
+    #     result_data <- calculate_variable_genes_by_LFC()
+    #     # update selected variable genes
+    #     variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
+    #     selected_variable_genes(variable_genes)
+    #
+    #     # highlight selected variable genes in the plot
+    #     result_data$highlight <- ifelse(result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff, "Selected", "Unselected")
+    #     p <- result_data %>%
+    #       ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>log2(Max-mean) + 1:", max_mean_log2, "<br>LFC:", LFC))) +
+    #       geom_point(size = 3) +
+    #       scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
+    #       labs(x = paste0("log2(Max-mean) + 1"),
+    #            y = paste0("LFC")) +
+    #       theme_minimal() +
+    #       theme(legend.position = "right") +
+    #       theme_linedraw(base_size = 16) +
+    #       theme(panel.grid.major = element_blank(),
+    #             panel.grid.minor = element_blank(),
+    #             legend.title = element_blank(),
+    #             legend.text = element_text(size = 10),
+    #             legend.position = "right")
+    #
+    #   }
+    #   ggplotly(p, tooltip = "text")
+    # })
+
     output$variable_genes_plot <- renderPlotly({
       on.exit(removeModal())
 
@@ -186,28 +249,39 @@ clusteringTabServer <- function(id, dataset) {
         result_data <- samples_anova_results()
         result_data$Max_log2 <- log2(result_data$Max + 1)
 
-        # update selected variable genes
         variable_genes <- dplyr::filter(result_data, p_value <= input$y_cutoff, Max_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
 
-        # highlight selected variable genes in the plot
-        result_data$highlight <- ifelse(result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
+        result_data$highlight <- ifelse(
+          result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff,
+          "Selected", "Unselected"
+        )
 
-        p <- result_data %>%
-          ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
-                     text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>-log10(P-value):", p_value_log10))) +
-          geom_point(size = 3) +
-          scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-          labs(x = paste0("log2(Max) + 1"),
-               y = paste0("-log10(P-value)")) +
-          theme_minimal() +
-          theme(legend.position = "right") +
-          theme_linedraw(base_size = 16) +
-          theme(panel.grid.major = element_blank(),
-                panel.grid.minor = element_blank(),
-                legend.title = element_blank(),
-                legend.text = element_text(size = 10),
-                legend.position = "right")
+        p <- plot_ly(
+          data = result_data,
+          x = ~Max_log2,
+          y = ~p_value_log10,
+          type = 'scatter',
+          mode = 'markers',
+          color = ~highlight,
+          colors = c("Selected" = "blue", "Unselected" = "grey"),
+          text = ~paste(
+            "Genes:", Gene_Symbol,
+            "<br>Max Group Expression:", Max,
+            "<br>P Value:", p_value,
+            "<br>P Adjusted Value:", p_value_adj,
+            "<br>-log10(P-value):", p_value_log10
+          ),
+          hoverinfo = "text",
+          marker = list(size = 10)
+        ) %>%
+          layout(
+            title = "Variable Genes Plot (ANOVA)",
+            xaxis = list(title = "log2(Max) + 1"),
+            yaxis = list(title = "-log10(P-value)"),
+            legend = list(orientation = "v", x = 1, y = 1)
+          )
+
       } else {
         # render by LFC
         if (input$LFC_group_1 == input$LFC_group_2) {
@@ -215,29 +289,39 @@ clusteringTabServer <- function(id, dataset) {
         }
 
         result_data <- calculate_variable_genes_by_LFC()
-        # update selected variable genes
         variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
         selected_variable_genes(variable_genes)
 
-        # highlight selected variable genes in the plot
-        result_data$highlight <- ifelse(result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff, "Selected", "Unselected")
-        p <- result_data %>%
-          ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>log2(Max-mean) + 1:", max_mean_log2, "<br>LFC:", LFC))) +
-          geom_point(size = 3) +
-          scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-          labs(x = paste0("log2(Max-mean) + 1"),
-               y = paste0("LFC")) +
-          theme_minimal() +
-          theme(legend.position = "right") +
-          theme_linedraw(base_size = 16) +
-          theme(panel.grid.major = element_blank(),
-                panel.grid.minor = element_blank(),
-                legend.title = element_blank(),
-                legend.text = element_text(size = 10),
-                legend.position = "right")
+        result_data$highlight <- ifelse(
+          result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff,
+          "Selected", "Unselected"
+        )
 
+        p <- plot_ly(
+          data = result_data,
+          x = ~max_mean_log2,
+          y = ~LFC,
+          type = 'scatter',
+          mode = 'markers',
+          color = ~highlight,
+          colors = c("Selected" = "blue", "Unselected" = "grey"),
+          text = ~paste(
+            "Genes:", Gene_Symbol,
+            "<br>log2(Max-mean) + 1:", max_mean_log2,
+            "<br>LFC:", LFC
+          ),
+          hoverinfo = "text",
+          marker = list(size = 10)
+        ) %>%
+          layout(
+            title = "Variable Genes Plot (LFC)",
+            xaxis = list(title = "log2(Max-mean) + 1"),
+            yaxis = list(title = "LFC"),
+            legend = list(orientation = "v", x = 1, y = 1)
+          )
       }
-      ggplotly(p, tooltip = "text")
+
+      p
     })
 
     output$number_of_genes <- renderText(paste0("Number of Selected Genes: ", nrow(selected_variable_genes())))

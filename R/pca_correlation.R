@@ -47,62 +47,181 @@ PCACorrelationTabServer <- function(id, dataset) {
       return(df_transposed)
     }
 
-    create_pca_plot <- function() {
-      log_info("Creating PCA plot: PC{input$pc_x} vs PC{input$pc_y}")
+    # create_pca_plot <- function() {
+    #   log_info("Creating PCA plot: PC{input$pc_x} vs PC{input$pc_y}")
+    #
+    #   req(input$pc_x, input$pc_y, dataset$expression_data(), dataset$groups_data(), dataset$selected_samples_data())
+    #   df <- dataset$filtered_data()
+    #   groups <- dataset$groups_data()
+    #   selected_samples <- dataset$selected_samples_data()
+    #
+    #   colnames(df)[1] <- "Symbols"
+    #   colnames(df)[2] <- "Genes"
+    #   colnames(groups)[1] <- "Samples"
+    #   colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+    #
+    #   pc_x <- as.numeric(input$pc_x)
+    #   pc_y <- as.numeric(input$pc_y)
+    #
+    #   df_transposed <- get_pca_data(df, groups, selected_samples)
+    #   pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
+    #   percentVar <- pca_comp$sdev^2 / sum(pca_comp$sdev^2)
+    #   pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
+    #
+    #   if (input$pca_grouped) {
+    #     group_color <- groups %>%
+    #       group_by(Color)
+    #     pca_df <- pca_df %>%
+    #       left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP"))
+    #     colors <- unique(pca_df$Color)
+    #     names(colors) <- unique(pca_df$EXPERIMENTAL_GROUP)
+    #     scale_color <- scale_color_manual(values = colors)
+    #   } else {
+    #     pca_df <- pca_df %>%
+    #       left_join(groups, by = c("sampleLab" = "Samples"))
+    #     colors <- pca_df$Color
+    #     names(colors) <- pca_df$sampleLab
+    #     scale_color <- scale_color_manual(values = colors)
+    #     #scale_color <- scale_color_viridis(discrete = TRUE)
+    #   }
+    #   pca_download_data(pca_df)
+    #
+    #   x_col <- paste0("PC", pc_x)
+    #   y_col <- paste0("PC", pc_y)
+    #
+    #   plotly_obj <- plot_ly(
+    #     data = pca_df,
+    #     x = ~get(x_col),
+    #     y = ~get(y_col),
+    #     type = 'scatter',
+    #     mode = 'markers',
+    #     color = ~color_var,
+    #     colors = color_mapping,
+    #     text = ~paste("Sample:", sampleLab,
+    #                   "<br>", x_col, ":", round(get(x_col), 2),
+    #                   "<br>", y_col, ":", round(get(y_col), 2)),
+    #     hoverinfo = "text"
+    #   ) %>%
+    #     layout(
+    #       title = sprintf("PCA Plot: %s vs %s", x_col, y_col),
+    #       xaxis = list(title = paste0(x_col, ": ", round(percentVar[pc_x] * 100, 1), "% variance")),
+    #       yaxis = list(title = paste0(y_col, ": ", round(percentVar[pc_y] * 100, 1), "% variance")),
+    #       legend = list(orientation = "v", x = 1, y = 1)
+    #     )
+    #
+    #   log_info("PCA plot created successfully")
+    #
+    #   plotly_obj
 
-      req(input$pc_x, input$pc_y, dataset$expression_data(), dataset$groups_data(), dataset$selected_samples_data())
+
+    # p <- pca_df %>%
+    #   ggplot(aes(x = pca_df[, pc_x], y = pca_df[, pc_y], label = sampleLab, color = sampleLab,
+    #              text = paste("Sample:", sampleLab, "<br>PC", pc_x, ":", pca_df[, pc_x], "<br>PC", pc_y, ":", pca_df[, pc_y]))) +
+    #   geom_point(size = 5) +
+    #   labs(x = paste0("PC", pc_x, ": ", round(percentVar[pc_x] * 100, 1), "% variance"),
+    #        y = paste0("PC", pc_y, ": ", round(percentVar[pc_y] * 100, 1), "% variance")) +
+    #   scale_color +
+    #   theme_minimal() +
+    #   theme(legend.position = "right") +
+    #   theme_linedraw(base_size = 16) +
+    #   theme(panel.grid.major = element_blank(),
+    #         panel.grid.minor = element_blank(),
+    #         legend.title = element_blank(),
+    #         legend.text = element_text(size = 10),
+    #         legend.position = "right")
+    #
+    # ggplotly(p, tooltip = "text")
+    # log_info("PCA plot created successfully")
+    # }
+
+    create_pca_plot <- function() {
+      log_info(sprintf("Creating PCA plot: PC%s vs PC%s", input$pc_x, input$pc_y))
+
+      req(input$pc_x, input$pc_y,
+          dataset$expression_data(),
+          dataset$groups_data(),
+          dataset$selected_samples_data())
+
       df <- dataset$filtered_data()
       groups <- dataset$groups_data()
       selected_samples <- dataset$selected_samples_data()
 
-      colnames(df)[1] <- "Symbols"
-      colnames(df)[2] <- "Genes"
-      colnames(groups)[1] <- "Samples"
-      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
+      colnames(df)[1:2] <- c("Symbols", "Genes")
+      colnames(groups)[1:2] <- c("Samples", "EXPERIMENTAL_GROUP")
 
       pc_x <- as.numeric(input$pc_x)
       pc_y <- as.numeric(input$pc_y)
 
       df_transposed <- get_pca_data(df, groups, selected_samples)
+
       pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
       percentVar <- pca_comp$sdev^2 / sum(pca_comp$sdev^2)
+
       pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
 
       if (input$pca_grouped) {
-        group_color <- groups %>%
-          group_by(Color)
-        pca_df <- pca_df %>%
-          left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP"))
-        colors <- unique(pca_df$Color)
-        names(colors) <- unique(pca_df$EXPERIMENTAL_GROUP)
-        scale_color <- scale_color_manual(values = colors)
-      } else {
-        pca_df <- pca_df %>%
-          left_join(groups, by = c("sampleLab" = "Samples"))
-        colors <- pca_df$Color
-        names(colors) <- pca_df$sampleLab
-        scale_color <- scale_color_manual(values = colors)
-        #scale_color <- scale_color_viridis(discrete = TRUE)
-      }
-      pca_download_data(pca_df)
-      p <- pca_df %>%
-        ggplot(aes(x = pca_df[, pc_x], y = pca_df[, pc_y], label = sampleLab, color = sampleLab,
-                   text = paste("Sample:", sampleLab, "<br>PC", pc_x, ":", pca_df[, pc_x], "<br>PC", pc_y, ":", pca_df[, pc_y]))) +
-        geom_point(size = 5) +
-        labs(x = paste0("PC", pc_x, ": ", round(percentVar[pc_x] * 100, 1), "% variance"),
-             y = paste0("PC", pc_y, ": ", round(percentVar[pc_y] * 100, 1), "% variance")) +
-        scale_color +
-        theme_minimal() +
-        theme(legend.position = "right") +
-        theme_linedraw(base_size = 16) +
-        theme(panel.grid.major = element_blank(),
-              panel.grid.minor = element_blank(),
-              legend.title = element_blank(),
-              legend.text = element_text(size = 10),
-              legend.position = "right")
+        pca_df <- pca_df %>% left_join(groups, by = c("sampleLab" = "EXPERIMENTAL_GROUP"))
 
-      ggplotly(p, tooltip = "text")
+        if ("Color" %in% colnames(groups)) {
+          group_color_map <- groups %>%
+            select(EXPERIMENTAL_GROUP, Color) %>%
+            distinct()
+          colors <- group_color_map$Color
+          names(colors) <- group_color_map$EXPERIMENTAL_GROUP
+          color_mapping <- colors
+        } else {
+          color_mapping <- "Viridis"
+        }
+
+        color_var <- pca_df$sampleLab
+      } else {
+        pca_df <- pca_df %>% left_join(groups, by = c("sampleLab" = "Samples"))
+        if ("Color" %in% colnames(pca_df)) {
+          sample_color_map <- pca_df %>%
+            select(sampleLab, Color) %>%
+            distinct()
+          colors <- sample_color_map$Color
+          names(colors) <- sample_color_map$sampleLab
+          if (length(colors) < length(unique(pca_df$sampleLab))) {
+            unique_samples <- unique(pca_df$sampleLab)
+            colors <- viridis::viridis(length(unique_samples))
+            names(colors) <- unique_samples
+          }
+          color_mapping <- colors
+        } else {
+          color_mapping <- "Viridis"
+        }
+        color_var <- pca_df$sampleLab
+      }
+
+      pca_download_data(pca_df)
+
+      x_col <- paste0("PC", pc_x)
+      y_col <- paste0("PC", pc_y)
+
+      plotly_obj <- plot_ly(
+        data = pca_df,
+        x = ~get(x_col),
+        y = ~get(y_col),
+        type = 'scatter',
+        mode = 'markers',
+        color = ~color_var,
+        colors = color_mapping,
+        text = ~paste("Sample:", sampleLab,
+                      "<br>", x_col, ":", round(get(x_col), 2),
+                      "<br>", y_col, ":", round(get(y_col), 2)),
+        hoverinfo = "text"
+      ) %>%
+        layout(
+          title = sprintf("PCA Plot: %s vs %s", x_col, y_col),
+          xaxis = list(title = paste0(x_col, ": ", round(percentVar[pc_x] * 100, 1), "% variance")),
+          yaxis = list(title = paste0(y_col, ": ", round(percentVar[pc_y] * 100, 1), "% variance")),
+          legend = list(orientation = "v", x = 1, y = 1)
+        )
+
       log_info("PCA plot created successfully")
+
+      plotly_obj
     }
 
     create_correlation_plot <- function(data, groups, Pearson_or_Spearman) {

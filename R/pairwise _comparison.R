@@ -173,38 +173,124 @@ perform_DEG_analysis <- function(exp_data, group1_samples, group2_samples, test_
 
 
 # Volcano plot generation function
+# generate_volcano_plot <- function(results, group1_name, group2_name) {
+#   total_genes <- nrow(results)
+#   up_genes <- sum(results$Regulation == "Upregulated", na.rm = TRUE)
+#   down_genes <- sum(results$Regulation == "Downregulated", na.rm = TRUE)
+#
+#   p <- ggplot(results, aes(
+#     x = Log2FoldChange, y = -log10(PValue), color = Regulation,
+#     text = paste(
+#       "Gene:", Gene_Symbol,
+#       "<br>", group1_name, "Mean:", Group1Mean,
+#       "<br>", group2_name, "Mean:", Group2Mean,
+#       "<br>Fold Change:", Log2FoldChange,
+#       "<br>P-value:", PValue,
+#       "<br>Adj P-value:", AdjPValue
+#     )
+#   )) +
+#     geom_point(alpha = 0.8) +
+#     labs(x = "Log2 Fold Change", y = "-log10(P-value)", title = "Volcano Plot") +
+#     scale_color_manual(values = c(
+#       "Upregulated" = "red",
+#       "Downregulated" = "blue",
+#       "Not Significant" = "grey"
+#     )) +
+#     theme_minimal()
+#
+#   ggplotly(p, tooltip = "text")
+# }
+
 generate_volcano_plot <- function(results, group1_name, group2_name) {
   total_genes <- nrow(results)
   up_genes <- sum(results$Regulation == "Upregulated", na.rm = TRUE)
   down_genes <- sum(results$Regulation == "Downregulated", na.rm = TRUE)
 
-  p <- ggplot(results, aes(
-    x = Log2FoldChange, y = -log10(PValue), color = Regulation,
-    text = paste(
+  plotly_obj <- plot_ly(
+    data = results,
+    x = ~Log2FoldChange,
+    y = ~-log10(PValue),
+    type = 'scatter',
+    mode = 'markers',
+    color = ~Regulation,
+    colors = c("Upregulated" = "red",
+               "Downregulated" = "blue",
+               "Not Significant" = "grey"),
+    text = ~paste(
       "Gene:", Gene_Symbol,
       "<br>", group1_name, "Mean:", Group1Mean,
       "<br>", group2_name, "Mean:", Group2Mean,
       "<br>Fold Change:", Log2FoldChange,
       "<br>P-value:", PValue,
       "<br>Adj P-value:", AdjPValue
+    ),
+    hoverinfo = "text",
+    marker = list(opacity = 0.8)
+  ) %>%
+    layout(
+      title = "Volcano Plot",
+      xaxis = list(title = "Log2 Fold Change"),
+      yaxis = list(title = "-log10(P-value)")
     )
-  )) +
-    geom_point(alpha = 0.8) +
-    labs(x = "Log2 Fold Change", y = "-log10(P-value)", title = "Volcano Plot") +
-    scale_color_manual(values = c(
-      "Upregulated" = "red",
-      "Downregulated" = "blue",
-      "Not Significant" = "grey"
-    )) +
-    theme_minimal()
 
-  ggplotly(p, tooltip = "text")
+  plotly_obj
 }
 
 
 # MA plot generation function
+# generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, group1_name, group2_name) {
+#   # Add pseudocount to avoid log transformation issues
+#   pseudocount <- 1
+#   group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE] + pseudocount
+#   group2_data <- exp_data[, colnames(exp_data) %in% group2_samples, drop = FALSE] + pseudocount
+#
+#   A <- (log2(rowMeans(group1_data)) + log2(rowMeans(group2_data))) / 2
+#   M <- log2(rowMeans(group2_data)) - log2(rowMeans(group1_data))
+#
+#   ma_data <- data.frame(
+#     A = A, M = M,
+#     Regulation = results$Regulation,
+#     Symbols = results$Symbols,
+#     Gene_Symbol = results$Gene_Symbol,
+#     Group1Mean = rowMeans(group1_data),
+#     Group2Mean = rowMeans(group2_data),
+#     Log2FoldChange = M,
+#     PValue = results$PValue,
+#     AdjPValue = results$AdjPValue
+#   )
+#
+#   total_genes <- nrow(ma_data)
+#   up_genes <- sum(ma_data$Regulation == "Upregulated", na.rm = TRUE)
+#   down_genes <- sum(ma_data$Regulation == "Downregulated", na.rm = TRUE)
+#
+#   print(paste("Total genes in MA plot:", total_genes))
+#   print(paste("Upregulated genes:", up_genes))
+#   print(paste("Downregulated genes:", down_genes))
+#
+#   p <- ggplot(ma_data, aes(
+#     x = A, y = M, color = Regulation,
+#     text = paste(
+#       "Gene:", Gene_Symbol,
+#       "<br>", group1_name, "Mean:", Group1Mean,
+#       "<br>", group2_name, "Mean:", Group2Mean,
+#       "<br>Fold Change:", Log2FoldChange,
+#       "<br>P-value:", PValue,
+#       "<br>Adj P-value:", AdjPValue
+#     )
+#   )) +
+#     geom_point(alpha = 0.5) +
+#     labs(x = "Average Log Intensity (A)", y = "Log Fold Change (M)", title = "MA Plot") +
+#     scale_color_manual(values = c(
+#       "Upregulated" = "red",
+#       "Downregulated" = "blue",
+#       "Not Significant" = "grey"
+#     )) +
+#     theme_minimal()
+#
+#   ggplotly(p, tooltip = "text")
+# }
+
 generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, group1_name, group2_name) {
-  # Add pseudocount to avoid log transformation issues
   pseudocount <- 1
   group1_data <- exp_data[, colnames(exp_data) %in% group1_samples, drop = FALSE] + pseudocount
   group2_data <- exp_data[, colnames(exp_data) %in% group2_samples, drop = FALSE] + pseudocount
@@ -213,7 +299,8 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
   M <- log2(rowMeans(group2_data)) - log2(rowMeans(group1_data))
 
   ma_data <- data.frame(
-    A = A, M = M,
+    A = A,
+    M = M,
     Regulation = results$Regulation,
     Symbols = results$Symbols,
     Gene_Symbol = results$Gene_Symbol,
@@ -221,7 +308,8 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
     Group2Mean = rowMeans(group2_data),
     Log2FoldChange = M,
     PValue = results$PValue,
-    AdjPValue = results$AdjPValue
+    AdjPValue = results$AdjPValue,
+    stringsAsFactors = FALSE
   )
 
   total_genes <- nrow(ma_data)
@@ -232,27 +320,32 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
   print(paste("Upregulated genes:", up_genes))
   print(paste("Downregulated genes:", down_genes))
 
-  p <- ggplot(ma_data, aes(
-    x = A, y = M, color = Regulation,
-    text = paste(
+  plotly_obj <- plot_ly(
+    data = ma_data,
+    x = ~A,
+    y = ~M,
+    type = 'scatter',
+    mode = 'markers',
+    color = ~Regulation,
+    colors = c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "grey"),
+    text = ~paste(
       "Gene:", Gene_Symbol,
       "<br>", group1_name, "Mean:", Group1Mean,
       "<br>", group2_name, "Mean:", Group2Mean,
       "<br>Fold Change:", Log2FoldChange,
       "<br>P-value:", PValue,
       "<br>Adj P-value:", AdjPValue
+    ),
+    hoverinfo = "text",
+    marker = list(opacity = 0.5)
+  ) %>%
+    layout(
+      title = "MA Plot",
+      xaxis = list(title = "Average Log Intensity (A)"),
+      yaxis = list(title = "Log Fold Change (M)")
     )
-  )) +
-    geom_point(alpha = 0.5) +
-    labs(x = "Average Log Intensity (A)", y = "Log Fold Change (M)", title = "MA Plot") +
-    scale_color_manual(values = c(
-      "Upregulated" = "red",
-      "Downregulated" = "blue",
-      "Not Significant" = "grey"
-    )) +
-    theme_minimal()
 
-  ggplotly(p, tooltip = "text")
+  plotly_obj
 }
 
 
