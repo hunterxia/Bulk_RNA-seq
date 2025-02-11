@@ -603,10 +603,17 @@ clusteringTabUI <- function(id) {
                  column(12, uiOutput(NS(id, "y_axis_operations"))),
              )
       ),
-      column(8,
+      # column(8,
+      #        textOutput(NS(id, "number_of_genes")),
+      #        plotlyOutput(NS(id, "variable_genes_plot"), width = "600px", height = "600px"),
+      #        plotOutput(NS(id, "heatmap_plot"), width = "600px", height = "600px")
+      # )
+      column(4,
              textOutput(NS(id, "number_of_genes")),
-             plotlyOutput(NS(id, "variable_genes_plot"), width = "600px", height = "600px"),
-             plotOutput(NS(id, "heatmap_plot"), width = "600px", height = "600px")
+             plotlyOutput(NS(id, "variable_genes_plot"), width = "100%", height = "50vh")
+      ),
+      column(4,
+             plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "50vh")
       )
     )
   )

@@ -6,6 +6,7 @@ library(reshape2)
 library(shinybusy)
 library(heatmaply)
 library(logger)
+library(pheatmap)
 
 PCACorrelationTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -224,125 +225,130 @@ PCACorrelationTabServer <- function(id, dataset) {
       plotly_obj
     }
 
+    # create_correlation_plot <- function(data, groups, Pearson_or_Spearman) {
+    #   log_info("Creating correlation plot using {Pearson_or_Spearman} coefficient")
+    #   numerical_data <- data[, 3:ncol(data)]
+    #
+    #   if (Pearson_or_Spearman == "pearson") {
+    #     title_hierarchical <- "Pearson's Correlation Matrix"
+    #     cor_matrix <- cor(numerical_data, method = "pearson")
+    #   } else {
+    #     title_hierarchical <- "Spearman's Correlation Matrix"
+    #     cor_matrix <- cor(numerical_data, method = "spearman")
+    #   }
+    #   breaks <- seq(0, 1, length.out = 100)
+    #
+    #   if (input$pca_grouped) {
+    #     annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
+    #     annotation_df <- unique(annotation_df);
+    #     annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
+    #     rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
+    #     annotation_colors <- list(
+    #       Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
+    #     )
+    #     filtered_row_side_colors <- rownames(cor_matrix)
+    #   } else {
+    #     annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
+    #     annotation_row <- data.frame(Samples = annotation_df$Samples)
+    #     rownames(annotation_row) <- annotation_df$Samples
+    #     annotation_colors <- list(
+    #       Samples = setNames(annotation_df$Color, annotation_df$Samples)
+    #     )
+    #     filtered_row_side_colors <- annotation_row$Samples[annotation_row$Samples %in% rownames(cor_matrix)]
+    #   }
+    #
+    #   corr_download_data(cor_matrix)
+    #   custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
+    #   p <- heatmaply(
+    #     cor_matrix,
+    #     Rowv = FALSE,
+    #     Colv = FALSE,
+    #     row_side_colors = rownames(cor_matrix),
+    #     row_side_palette = annotation_colors$Samples,
+    #     main = title_hierarchical,
+    #     colors = custom_colors(100),
+    #     scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
+    #     fontsize_row = 10,
+    #     fontsize_col = 10,
+    #     grid_color = "grey",
+    #     xlab = NULL,
+    #     ylab = NULL,
+    #     colorbar_thickness = 10,
+    #     label_names = c("X-axis", "Y-axis", "Value")
+    #   ) %>% layout(showlegend = FALSE)
+    #
+    #   log_info("Correlation plot created successfully")
+    #   return(p)
+    # }
+
     create_correlation_plot <- function(data, groups, Pearson_or_Spearman) {
       log_info("Creating correlation plot using {Pearson_or_Spearman} coefficient")
+
       numerical_data <- data[, 3:ncol(data)]
+
       if (Pearson_or_Spearman == "pearson") {
         title_hierarchical <- "Pearson's Correlation Matrix"
-        cor_matrix <- cor(numerical_data, method = "pearson")
+        cor_matrix <- cor(numerical_data, method = "pearson", use = "pairwise.complete.obs")
       } else {
         title_hierarchical <- "Spearman's Correlation Matrix"
-        cor_matrix <- cor(numerical_data, method = "spearman")
+        cor_matrix <- cor(numerical_data, method = "spearman", use = "pairwise.complete.obs")
       }
-      breaks <- seq(0, 1, length.out = 100)
+
+      custom_color_fun <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))
+      custom_colors <- custom_color_fun(100)
+
+      scale_limits <- if (!is.null(input$scale)) {
+        c(input$scale[1], input$scale[2])
+      } else {
+        c(min(cor_matrix, na.rm = TRUE), max(cor_matrix, na.rm = TRUE))
+      }
+
+      breaks <- seq(scale_limits[1], scale_limits[2], length.out = 101)
 
       if (input$pca_grouped) {
-        annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
-        annotation_df <- unique(annotation_df);
-        annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
-        rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
-        annotation_colors <- list(
-          Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
+        annotation_df <- data.frame(
+          Samples = groups$EXPERIMENTAL_GROUP,
+          Color = groups$Color,
+          stringsAsFactors = FALSE
         )
-        filtered_row_side_colors <- rownames(cor_matrix)
-      } else {
-        annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
-        annotation_row <- data.frame(Samples = annotation_df$Samples)
-        rownames(annotation_row) <- annotation_df$Samples
+        annotation_df <- unique(annotation_df)
+
+        annotation_row <- data.frame(Samples = annotation_df$Samples, row.names = annotation_df$Samples, stringsAsFactors = FALSE)
+
         annotation_colors <- list(
           Samples = setNames(annotation_df$Color, annotation_df$Samples)
         )
-        filtered_row_side_colors <- annotation_row$Samples[annotation_row$Samples %in% rownames(cor_matrix)]
-      }
 
+        row_annotation <- annotation_row
+      } else {
+        annotation_df <- data.frame(
+          Samples = groups$Samples,
+          Color = groups$Color,
+          stringsAsFactors = FALSE
+        )
+        annotation_df <- unique(annotation_df)
+        annotation_row <- data.frame(Samples = annotation_df$Samples, row.names = annotation_df$Samples, stringsAsFactors = FALSE)
+        annotation_colors <- list(
+          Samples = setNames(annotation_df$Color, annotation_df$Samples)
+        )
+        row_annotation <- annotation_row[rownames(annotation_row) %in% rownames(cor_matrix), , drop = FALSE]
+      }
       corr_download_data(cor_matrix)
-      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
-      p <- heatmaply(
-        cor_matrix,
-        Rowv = FALSE,
-        Colv = FALSE,
-        row_side_colors = rownames(cor_matrix),
-        row_side_palette = annotation_colors$Samples,
+
+      pheatmap_obj <- pheatmap::pheatmap(
+        mat = cor_matrix,
+        color = custom_colors,
+        breaks = breaks,
         main = title_hierarchical,
-        colors = custom_colors(100),
-        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
+        annotation_row = row_annotation,
+        annotation_colors = annotation_colors,
         fontsize_row = 10,
         fontsize_col = 10,
-        grid_color = "grey",
-        xlab = NULL,
-        ylab = NULL,
-        colorbar_thickness = 10,
-        label_names = c("X-axis", "Y-axis", "Value")
-      ) %>% layout(showlegend = FALSE)
+        border_color = "grey"
+      )
 
       log_info("Correlation plot created successfully")
-      return(p)
-    }
-
-
-    create_clustering_plot <- function(data, groups, Pearson_or_Spearman) {
-      data_sample_expr <- data[, -c(1, 2)]
-
-      if (Pearson_or_Spearman == "pearson") {
-        title_kmeans <- "K-means Clustered, Pearson's Correlation Matrix"
-        doc_label_kmeans <- "Kmeans_Pearsons_Correlation_Matrix"
-        title_hierarchical <- "Hierarchically Clustered, Pearson's Correlation Matrix"
-        doc_label_hierarchical <- "Hierarchical_Pearsons_Correlation_Matrix"
-        cluster_assignment <- "Kmeans_Pearsons_Correlation_Matrix_cluster_assignments"
-        cor_matrix <- cor(data_sample_expr, method = "pearson")
-      } else {
-        title_kmeans <- "K-means Clustered, Spearman's Correlation Matrix"
-        doc_label_kmeans <- "Kmeans_Spearmans_Correlation_Matrix"
-        title_hierarchical <- "Hierarchically Clustered, Spearman's Correlation Matrix"
-        doc_label_hierarchical <- "Hierarchical_Spearmans_Correlation_Matrix"
-        cluster_assignment <- "Kmeans_Spearmans_Correlation_Matrix_cluster_assignments"
-        cor_matrix <- cor(data_sample_expr, method = "spearman")
-      }
-
-      set.seed(40)
-      breaks <- seq(0, 1, length.out = 100)
-
-      if (input$pca_grouped) {
-        annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
-        annotation_df <- unique(annotation_df);
-        annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
-        rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
-        annotation_colors <- list(
-          Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
-        )
-      } else {
-        annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
-        annotation_row <- data.frame(Samples = annotation_df$Samples)
-        rownames(annotation_row) <- annotation_df$Samples
-        annotation_colors <- list(
-          Samples = setNames(annotation_df$Color, annotation_df$Samples)
-        )
-      }
-
-      distance_matrix <- function(cor_matrix) {
-        as.dist(1 - cor_matrix)
-      }
-
-      corr_download_data(distance_matrix(cor_matrix))
-      custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
-      p <- heatmaply(
-        cor_matrix,
-        row_side_colors = rownames(cor_matrix),
-        row_side_palette = annotation_colors$Samples,
-        Rowv = hclust(distance_matrix(cor_matrix)),
-        Colv = hclust(distance_matrix(t(cor_matrix))),
-        main = title_hierarchical,
-        colors = custom_colors(100),
-        scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
-        fontsize_row = 10,
-        fontsize_col = 10,
-        grid_color = "grey",
-        xlab = NULL,
-        ylab = NULL,
-        colorbar_thickness = 10,
-        label_names = c("X-axis", "Y-axis", "Value")
-      ) %>% layout(showlegend = FALSE)
-      return(p)
+      return(pheatmap_obj)
     }
 
 
@@ -351,7 +357,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       create_pca_plot()
     })
 
-    output$correlation <- renderPlotly({
+    output$correlation <- renderPlot({
       req(dataset$filtered_data(), dataset$groups_data())
       gene_data <- dataset$filtered_data()
       groups <- dataset$groups_data()
@@ -529,7 +535,7 @@ PCACorrelationTabUI <- function(id) {
              ),
              add_busy_spinner(spin = "fading-circle", color = "#000000"),
              div(id = "plot-container",
-                 plotlyOutput(NS(id, "correlation"), height = "85%")
+                 plotOutput(NS(id, "correlation"), height = "85%")
              )
 
       )

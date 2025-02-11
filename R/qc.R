@@ -175,8 +175,8 @@ qcTabServer <- function(id, dataset) {
           title = "Histogram before filtering",
           xaxis = list(title = NULL, tickangle = 90),
           yaxis = list(title = "Gene Counts", range = c(0, 4000)),
-          width = 400,
-          height = 400,
+          # width = 400,
+          # height = 400,
           legend = list(orientation = "v", x = 1, y = 1)
         )
       plotly_obj
@@ -310,8 +310,8 @@ qcTabServer <- function(id, dataset) {
           title = "Histogram after filtering",
           xaxis = list(title = ""),
           yaxis = list(title = "Gene Counts", range = c(0, 4000)),
-          width = 400,
-          height = 400,
+          # width = 400,
+          # height = 400,
           legend = list(orientation = "h", x = 1, y = 1)
         )
 
@@ -420,8 +420,8 @@ qcTabServer <- function(id, dataset) {
           title = plot_title,
           xaxis = list(title = "", tickangle = -45),
           yaxis = list(title = "Gene Count", range = c(0, unfiltered_max)),
-          width = 400,
-          height = 400,
+          # width = 400,
+          # height = 400,
           legend = list(orientation = "v")
         )
       # dev.off()
@@ -508,18 +508,18 @@ qcTabUI <- function(id) {
     ),
     fluidRow(
       column(6,
-             plotlyOutput(NS(id, "hist"), width = "400px", height = "400px")
+             plotlyOutput(NS(id, "hist"), width = "100%", height = "100%")
       ),
       column(6,
-             plotlyOutput(NS(id, "filtered_hist"), width = "400px", height = "400px")
+             plotlyOutput(NS(id, "filtered_hist"), width = "100%", height = "100%")
       )
     ),
     fluidRow(
       column(6,
-             plotlyOutput(NS(id, "grouped_hist"), width = "400px", height = "400px")
+             plotlyOutput(NS(id, "grouped_hist"), width = "100%", height = "100%")
       ),
       column(6,
-             plotlyOutput(NS(id, "grouped_filtered_hist"), width = "400px", height = "400px")
+             plotlyOutput(NS(id, "grouped_filtered_hist"), width = "100%", height = "100%")
       )
     )
   )

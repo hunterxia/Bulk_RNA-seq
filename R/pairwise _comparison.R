@@ -45,10 +45,10 @@ PairwiseComparisonTabUI <- function(id) {
         tabsetPanel(type = "tabs",
                     tabPanel("Volcano Plot",
                              textOutput(ns("volcano_gene_counts")),
-                             plotlyOutput(ns("volcano_plot"), width = "400px", height = "400px")),
+                             plotlyOutput(ns("volcano_plot"), width = "100%", height = "100%")),
                     tabPanel("MA Plot",
                              textOutput(ns("ma_gene_counts")),
-                             plotlyOutput(ns("ma_plot"), width = "400px", height = "400px")),
+                             plotlyOutput(ns("ma_plot"), width = "100%", height = "100%")),
                     tabPanel("Positive DEG Table", DTOutput(ns("pos_deg_table"))),
                     tabPanel("Negative DEG Table", DTOutput(ns("neg_deg_table")))
         )
