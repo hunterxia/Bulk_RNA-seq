@@ -6,6 +6,7 @@ library(plotly)
 library(dplyr)
 library(heatmaply)
 library(logger)
+library(shinybusy)
 
 clusteringTabServer <- function(id, dataset) {
   moduleServer(id, function(input, output, session) {
@@ -339,6 +340,10 @@ clusteringTabServer <- function(id, dataset) {
       rownames(gene_expression_z) <- data$Symbol
 
       if (cluster_options == 1) {
+        if (nrow(data_sample_expr) < max_clusters) {
+          showNotification("Error: Number of data points is less than the number of clusters chosen.", type = "error")
+          return(NULL)
+        }
         set.seed(40)
         clusters <- kmeans(gene_expression_z, centers = max_clusters, nstart = 25)
 
@@ -543,6 +548,7 @@ clusteringTabServer <- function(id, dataset) {
 
 clusteringTabUI <- function(id) {
   fluidPage(
+    add_busy_spinner(spin = "fading-circle", color = "#000000", position = "top-right"),
     tags$head(
       tags$style(HTML("
       .bottom-centered {
