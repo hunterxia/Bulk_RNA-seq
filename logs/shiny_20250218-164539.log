@@ -1,0 +1,37 @@
+INFO [2025-02-18 16:45:39] Shiny session started
+INFO [2025-02-18 16:45:40] PCA and Correlation tab initialized
+INFO [2025-02-18 16:45:40] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 16:45:40] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:45:45] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:45:54] Processing PCA data with 12 samples
+INFO [2025-02-18 16:45:54] Filtered to 19987 genes with non-zero expression
+INFO [2025-02-18 16:45:54] PCA selector options updated with 12 choices
+INFO [2025-02-18 16:45:57] Running DEG analysis
+INFO [2025-02-18 16:45:57] Starting DEG analysis (paired)
+INFO [2025-02-18 16:45:58] Total execution time: 1.22s
+INFO [2025-02-18 16:59:13] PCA and Correlation tab initialized
+INFO [2025-02-18 16:59:13] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 16:59:13] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:59:17] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:59:24] Processing PCA data with 12 samples
+INFO [2025-02-18 16:59:24] Filtered to 19987 genes with non-zero expression
+INFO [2025-02-18 16:59:24] PCA selector options updated with 12 choices
+INFO [2025-02-18 16:59:28] Running DEG analysis
+INFO [2025-02-18 16:59:28] Starting DEG analysis (paired)
+INFO [2025-02-18 16:59:29] Total execution time: 0.96s
+INFO [2025-02-18 17:11:59] PCA and Correlation tab initialized
+INFO [2025-02-18 17:11:59] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 17:11:59] Loading expression data into cache asynchronously
+INFO [2025-02-18 17:12:04] Loading expression data into cache asynchronously
+INFO [2025-02-18 17:12:12] Processing PCA data with 3 samples
+INFO [2025-02-18 17:12:12] Filtered to 14745 genes with non-zero expression
+INFO [2025-02-18 17:12:12] PCA selector options updated with 3 choices
+INFO [2025-02-18 17:12:14] Running DEG analysis
+INFO [2025-02-18 17:12:14] Starting DEG analysis (paired)
+INFO [2025-02-18 17:12:15] Total execution time: 0.79s
+INFO [2025-02-18 17:12:23] Processing PCA data with 6 samples
+INFO [2025-02-18 17:12:23] Filtered to 17745 genes with non-zero expression
+INFO [2025-02-18 17:12:23] PCA selector options updated with 6 choices
+INFO [2025-02-18 17:12:27] Running DEG analysis
+INFO [2025-02-18 17:12:27] Starting DEG analysis (paired)
+INFO [2025-02-18 17:12:28] Total execution time: 0.84s

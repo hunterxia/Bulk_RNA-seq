@@ -1,0 +1,12 @@
+INFO [2025-02-18 16:43:43] Shiny session started
+INFO [2025-02-18 16:43:43] PCA and Correlation tab initialized
+INFO [2025-02-18 16:43:43] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 16:43:43] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:43:50] Loading expression data into cache asynchronously
+INFO [2025-02-18 16:43:58] Processing PCA data with 226 samples
+INFO [2025-02-18 16:43:58] Filtered to 18836 genes with non-zero expression
+INFO [2025-02-18 16:44:01] PCA selector options updated with 226 choices
+INFO [2025-02-18 16:44:05] Running DEG analysis
+INFO [2025-02-18 16:44:05] Starting DEG analysis (paired)
+ERROR [2025-02-18 16:44:05] Analysis failed: not all arguments have the same length
+INFO [2025-02-18 16:44:05] Total execution time: 0.01s

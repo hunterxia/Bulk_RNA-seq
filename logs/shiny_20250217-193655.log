@@ -1,0 +1,17 @@
+INFO [2025-02-17 19:36:55] Shiny session started
+INFO [2025-02-17 19:36:56] PCA and Correlation tab initialized
+INFO [2025-02-17 19:36:56] Initializing Pairwise Comparison Tab
+INFO [2025-02-17 19:36:56] Loading expression data into cache asynchronously
+INFO [2025-02-17 19:37:02] Loading expression data into cache asynchronously
+INFO [2025-02-17 19:37:09] Processing PCA data with 12 samples
+INFO [2025-02-17 19:37:09] Filtered to 19987 genes with non-zero expression
+INFO [2025-02-17 19:37:09] PCA selector options updated with 12 choices
+INFO [2025-02-17 19:37:14] Creating PCA plot: PC1 vs PC2
+INFO [2025-02-17 19:37:14] Processing PCA data with 12 samples
+INFO [2025-02-17 19:37:14] Filtered to 12691 genes with non-zero expression
+INFO [2025-02-17 19:37:15] PCA plot created successfully
+INFO [2025-02-17 19:37:15] Creating correlation plot using pearson coefficient
+INFO [2025-02-17 19:37:15] Correlation plot created successfully
+INFO [2025-02-17 19:37:19] Running DEG analysis
+INFO [2025-02-17 19:37:19] Starting DEG analysis (paired)
+INFO [2025-02-17 19:37:20] Total execution time: 0.92s

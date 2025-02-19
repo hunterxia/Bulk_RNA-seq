@@ -1,0 +1,36 @@
+INFO [2025-02-18 18:11:59] Shiny session started
+INFO [2025-02-18 18:11:59] PCA and Correlation tab initialized
+INFO [2025-02-18 18:11:59] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 18:11:59] Loading expression data into cache asynchronously
+INFO [2025-02-18 18:12:03] Loading expression data into cache asynchronously
+INFO [2025-02-18 18:12:09] Processing PCA data with 12 samples
+INFO [2025-02-18 18:12:09] Filtered to 19987 genes with non-zero expression
+INFO [2025-02-18 18:12:09] PCA selector options updated with 12 choices
+INFO [2025-02-18 18:12:14] Running DEG analysis
+INFO [2025-02-18 18:12:14] Starting DEG analysis (unpaired)
+ERROR [2025-02-18 18:12:14] Analysis failed: data are essentially constant
+INFO [2025-02-18 18:12:14] Total execution time: 0.01s
+INFO [2025-02-18 18:12:17] Running DEG analysis
+INFO [2025-02-18 18:12:17] Starting DEG analysis (paired)
+INFO [2025-02-18 18:12:18] Total execution time: 0.51s
+INFO [2025-02-18 18:12:32] Running DEG analysis
+INFO [2025-02-18 18:12:32] Starting DEG analysis (unpaired)
+ERROR [2025-02-18 18:12:32] Analysis failed: data are essentially constant
+INFO [2025-02-18 18:12:32] Total execution time: 0.01s
+INFO [2025-02-18 18:12:37] Running DEG analysis
+INFO [2025-02-18 18:12:37] Starting DEG analysis (paired)
+INFO [2025-02-18 18:12:37] Total execution time: 0.9s
+INFO [2025-02-18 18:12:45] Running DEG analysis
+INFO [2025-02-18 18:12:45] Starting DEG analysis (paired)
+INFO [2025-02-18 18:12:45] Total execution time: 0.47s
+INFO [2025-02-18 18:12:55] Running DEG analysis
+INFO [2025-02-18 18:12:55] Starting DEG analysis (deseq)
+INFO [2025-02-18 18:12:58] Total execution time: 3.11s
+INFO [2025-02-18 18:13:07] Running DEG analysis
+INFO [2025-02-18 18:13:07] Starting DEG analysis (unpaired)
+ERROR [2025-02-18 18:13:07] Analysis failed: data are essentially constant
+INFO [2025-02-18 18:13:07] Total execution time: 0.01s
+INFO [2025-02-18 18:13:09] Running DEG analysis
+INFO [2025-02-18 18:13:09] Starting DEG analysis (unpaired)
+ERROR [2025-02-18 18:13:09] Analysis failed: data are essentially constant
+INFO [2025-02-18 18:13:09] Total execution time: 0.01s

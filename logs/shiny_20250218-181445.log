@@ -1,0 +1,4 @@
+INFO [2025-02-18 18:14:45] Shiny session started
+INFO [2025-02-18 18:14:45] PCA and Correlation tab initialized
+INFO [2025-02-18 18:14:45] Initializing Pairwise Comparison Tab
+INFO [2025-02-18 18:14:45] Loading expression data into cache asynchronously
