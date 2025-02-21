@@ -206,6 +206,7 @@ PCACorrelationTabServer <- function(id, dataset) {
         y = ~get(y_col),
         type = 'scatter',
         mode = 'markers',
+        marker = list(size = 15),
         color = ~color_var,
         colors = color_mapping,
         text = ~paste("Sample:", sampleLab,
@@ -382,11 +383,12 @@ PCACorrelationTabServer <- function(id, dataset) {
         data <- gene_data
       }
 
-      if (input$clustered) {
-        plot <- create_clustering_plot(data, groups, input$coefficient)
-      } else {
-        plot <- create_correlation_plot(data, groups, input$coefficient)
-      }
+      # if (input$clustered) {
+      #   plot <- create_clustering_plot(data, groups, input$coefficient)
+      # } else {
+      #   plot <- create_correlation_plot(data, groups, input$coefficient)
+      # }
+      plot <- create_correlation_plot(data, groups, input$coefficient)
 
       return(plot)
 
@@ -526,9 +528,9 @@ PCACorrelationTabUI <- function(id) {
                                          step = 0.05,
                                          value = c(0, 1))
                       ),
-                      column(3,
-                             materialSwitch(inputId = NS(id, "clustered"), label = "Hierarchical Clustering: ", value = FALSE, status = "primary")
-                      ),
+                      # column(3,
+                      #        materialSwitch(inputId = NS(id, "clustered"), label = "Hierarchical Clustering: ", value = FALSE, status = "primary")
+                      # ),
                       column(2,
                              downloadButton(NS(id, "download_corr"), "Download Data")
                       )

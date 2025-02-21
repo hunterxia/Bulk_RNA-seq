@@ -21,13 +21,13 @@ clusteringTabServer <- function(id, dataset) {
     observeEvent(input$run_analysis, {
       isolate({
         log_info("Running analysis")
-        showModal(modalDialog("Running analysis, please wait...", footer = NULL))
+        # showModal(modalDialog("Running analysis, please wait...", footer = NULL))
         # Only recalculates when the above reactive values change
         tryCatch({
           result <- calculate_variable_genes()
           if (is.null(result)) {
             log_warn("Experimental group has less than 2 levels")
-            removeModal()
+            # removeModal()
             showModal(modalDialog(
               title = "Error",
               "The factor 'EXPERIMENTAL_GROUP' has less than 2 levels. Please check your data.",
@@ -242,7 +242,7 @@ clusteringTabServer <- function(id, dataset) {
     # })
 
     output$variable_genes_plot <- renderPlotly({
-      on.exit(removeModal())
+      # on.exit(removeModal())
 
       # render by ANOVA
       if (input$y_axis_var == 1) {
