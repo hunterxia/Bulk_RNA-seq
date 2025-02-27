@@ -16,7 +16,7 @@ mainTabUI <- function(id) {
       uiOutput(ns("toggle_groups_ui")), 
       uiOutput(ns("sample_selection_ui")),  
       
-      numericInput(ns("expression_cutoff"), "Expression Level Cutoff", value = 0),
+      numericInput(ns("expression_cutoff"), "Expression Level Cutoff", value = 0,min = 0),
       numericInput(ns("sample_count_cutoff"), "Minimum Sample Count", value = 1, min = 1),
       
       actionButton(ns("apply_filters"), "Apply Filters"),
