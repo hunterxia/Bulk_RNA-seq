@@ -353,9 +353,24 @@ clusteringTabServer <- function(id, dataset) {
         set.seed(40)
         clusters <- kmeans(gene_expression_z, centers = max_clusters, nstart = 25)
 
+        # Create annotation dataframe with Gene_Symbol and Clusters
         annotation_df <- data.frame(Gene_Symbol = data$Gene_Symbol, Clusters = clusters[["cluster"]])
         rownames(annotation_df) <- data$Symbol
-        clusters_download_data(annotation_df)
+        
+        # Create a more comprehensive dataframe for download that includes expression values
+        download_df <- data.frame(
+          Symbol = data$Symbol,
+          Gene_Symbol = data$Gene_Symbol,
+          Cluster = clusters[["cluster"]]
+        )
+        
+        # Add all expression values from the original data
+        download_df <- cbind(download_df, data_sample_expr)
+        
+        # Store the comprehensive dataframe for download
+        clusters_download_data(download_df)
+        
+        # Use the simpler annotation dataframe for the heatmap display
         annotation_df <- annotation_df %>%
           arrange(Clusters) %>%
           select(-Gene_Symbol)
@@ -381,7 +396,19 @@ clusteringTabServer <- function(id, dataset) {
       # using correlation to calculate distance matrix
       row_cor_matrix <- cor(t(gene_expression_z))
       row_distance_matrix <- as.dist(1 - row_cor_matrix)
-      hierarchical_distance_matrix(1 - row_cor_matrix)
+      
+      # Create a comprehensive dataframe for hierarchical clustering download
+      # This includes the distance matrix and expression values
+      hier_download_df <- as.data.frame(1 - row_cor_matrix)
+      hier_download_df$Symbol <- data$Symbol
+      hier_download_df$Gene_Symbol <- data$Gene_Symbol
+      
+      # Add expression values
+      expression_data <- as.data.frame(gene_expression_z)
+      hier_download_df <- cbind(hier_download_df[c("Symbol", "Gene_Symbol")], expression_data, hier_download_df[!(names(hier_download_df) %in% c("Symbol", "Gene_Symbol"))])
+      
+      hierarchical_distance_matrix(hier_download_df)
+      
       p <- pheatmap::pheatmap(gene_expression_z,
                               cluster_rows = TRUE,
                               cluster_cols = FALSE,
@@ -429,20 +456,20 @@ clusteringTabServer <- function(id, dataset) {
     # download k-means clustering data
     output$download_clusters <- downloadHandler(
       filename = function() {
-        paste("assigned-clusters-", Sys.Date(), ".csv", sep = "")
+        paste("assigned-clusters-with-expression-", Sys.Date(), ".csv", sep = "")
       },
       content = function(file) {
-        write.csv(clusters_download_data(), file)
+        write.csv(clusters_download_data(), file, row.names = FALSE)
       }
     )
 
     # download hierarchical clustering data
     output$download_hierarchical <- downloadHandler(
       filename = function() {
-        paste("hierarchical-clustering-", Sys.Date(), ".csv", sep = "")
+        paste("hierarchical-clustering-with-expression-", Sys.Date(), ".csv", sep = "")
       },
       content = function(file) {
-        write.csv(hierarchical_distance_matrix(), file)
+        write.csv(hierarchical_distance_matrix(), file, row.names = FALSE)
       }
     )
 
@@ -489,7 +516,7 @@ clusteringTabServer <- function(id, dataset) {
             div(class = "bottom-centered",
                 column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5, step = 0.1)),
                 # column(3, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                column(4, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
+                column(4, downloadButton(NS(id, "download_clusters"), "Download clusters with expression"))
             )
           )
         })
@@ -499,7 +526,7 @@ clusteringTabServer <- function(id, dataset) {
           fluidRow(
             div(class = "bottom-centered",
                 # column(3,materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                column(6, downloadButton(NS(id, "download_hierarchical"), "Download distance matrix"))
+                column(6, downloadButton(NS(id, "download_hierarchical"), "Download hierarchical data with expression"))
             )
           )
         })
