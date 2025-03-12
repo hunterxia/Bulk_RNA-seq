@@ -166,7 +166,13 @@ clusteringTabServer <- function(id, dataset) {
       averaged_counts_result$max_mean_log2 <- log2(averaged_counts_result$max_mean + 1)
 
       averaged_counts_result <- averaged_counts_result %>%
-        mutate(LFC = log2(!!sym(input$LFC_group_1) + 1e-4) - log2(!!sym(input$LFC_group_2) + 1e-4))
+        mutate(
+          max_group = pmax(!!sym(input$LFC_group_1), !!sym(input$LFC_group_2)),
+          min_group = pmin(!!sym(input$LFC_group_1), !!sym(input$LFC_group_2)),
+          LFC = log2(max_group + 1) - log2(min_group + 1)  
+        ) %>% 
+        select(-max_group, -min_group)
+      
 
       averaged_counts_result$Gene_Symbol <- gene_data$Gene_Symbol
 
@@ -278,7 +284,7 @@ clusteringTabServer <- function(id, dataset) {
         ) %>%
           layout(
             title = "Variable Genes Plot (ANOVA)",
-            xaxis = list(title = "log2(Max) + 1"),
+            xaxis = list(title = "log2(Max + 1)"),
             yaxis = list(title = "-log10(P-value)"),
             legend = list(orientation = "v", x = 1, y = 1)
           )
@@ -308,7 +314,7 @@ clusteringTabServer <- function(id, dataset) {
           colors = c("Selected" = "blue", "Unselected" = "grey"),
           text = ~paste(
             "Genes:", Gene_Symbol,
-            "<br>log2(Max-mean) + 1:", max_mean_log2,
+            "<br>log2(Max-mean + 1):", max_mean_log2,
             "<br>LFC:", LFC
           ),
           hoverinfo = "text",
@@ -316,7 +322,7 @@ clusteringTabServer <- function(id, dataset) {
         ) %>%
           layout(
             title = "Variable Genes Plot (LFC)",
-            xaxis = list(title = "log2(Max-mean) + 1"),
+            xaxis = list(title = "log2(Max+1)"), 
             yaxis = list(title = "LFC"),
             legend = list(orientation = "v", x = 1, y = 1)
           )
@@ -347,9 +353,24 @@ clusteringTabServer <- function(id, dataset) {
         set.seed(40)
         clusters <- kmeans(gene_expression_z, centers = max_clusters, nstart = 25)
 
+        # Create annotation dataframe with Gene_Symbol and Clusters
         annotation_df <- data.frame(Gene_Symbol = data$Gene_Symbol, Clusters = clusters[["cluster"]])
         rownames(annotation_df) <- data$Symbol
-        clusters_download_data(annotation_df)
+        
+        # Create a more comprehensive dataframe for download that includes expression values
+        download_df <- data.frame(
+          Symbol = data$Symbol,
+          Gene_Symbol = data$Gene_Symbol,
+          Cluster = clusters[["cluster"]]
+        )
+        
+        # Add all expression values from the original data
+        download_df <- cbind(download_df, data_sample_expr)
+        
+        # Store the comprehensive dataframe for download
+        clusters_download_data(download_df)
+        
+        # Use the simpler annotation dataframe for the heatmap display
         annotation_df <- annotation_df %>%
           arrange(Clusters) %>%
           select(-Gene_Symbol)
@@ -369,42 +390,25 @@ clusteringTabServer <- function(id, dataset) {
                                 width = 10,
                                 height = 10)
 
-        # set up the colors for each side bar
-        # cluster_colors <- colorRampPalette(c("#F8FBFF", "#E7F8FA", "#A6DAD4", "#6EB784", "#397F36"))(max_clusters)
-        # annotation_colors <- setNames(cluster_colors[annotation_df$Clusters], annotation_df$Clusters)
-
-        # heatmaply has low resolution, but has move over function
-        # p <- heatmaply(
-        #   cor_matrix_ordered,
-        #   Rowv = FALSE,
-        #   Colv = FALSE,
-        #   row_side_colors = annotation_df,
-        #   colors = colorRampPalette(c("#5074AF", "white", "#CA4938"))(100),
-        #   row_side_palette = annotation_colors,
-        #   main = "K-means Clustered Matrix",
-        #   fontsize_row = 10,
-        #   fontsize_col = 10,
-        #   grid_color = "grey",
-        #   showticklabels = c(TRUE, FALSE),
-        #   xlab = NULL, 
-        #   ylab = NULL,
-        #   colorbar_thickness = 10,
-        #   label_names = c("X-axis", "Y-axis", "Value"),
-        # ) %>% layout(
-        #   legend = list(
-        #     title = list(text = "Clusters"),
-        #     yanchor = "middle",
-        #     xanchor = "left"
-        #   )
-        # )
-
         return(p)
       }
 
       # using correlation to calculate distance matrix
       row_cor_matrix <- cor(t(gene_expression_z))
       row_distance_matrix <- as.dist(1 - row_cor_matrix)
-      hierarchical_distance_matrix(1 - row_cor_matrix)
+      
+      # Create a comprehensive dataframe for hierarchical clustering download
+      # This includes the distance matrix and expression values
+      hier_download_df <- as.data.frame(1 - row_cor_matrix)
+      hier_download_df$Symbol <- data$Symbol
+      hier_download_df$Gene_Symbol <- data$Gene_Symbol
+      
+      # Add expression values
+      expression_data <- as.data.frame(gene_expression_z)
+      hier_download_df <- cbind(hier_download_df[c("Symbol", "Gene_Symbol")], expression_data, hier_download_df[!(names(hier_download_df) %in% c("Symbol", "Gene_Symbol"))])
+      
+      hierarchical_distance_matrix(hier_download_df)
+      
       p <- pheatmap::pheatmap(gene_expression_z,
                               cluster_rows = TRUE,
                               cluster_cols = FALSE,
@@ -452,55 +456,59 @@ clusteringTabServer <- function(id, dataset) {
     # download k-means clustering data
     output$download_clusters <- downloadHandler(
       filename = function() {
-        paste("assigned-clusters-", Sys.Date(), ".csv", sep = "")
+        paste("assigned-clusters-with-expression-", Sys.Date(), ".csv", sep = "")
       },
       content = function(file) {
-        write.csv(clusters_download_data(), file)
+        write.csv(clusters_download_data(), file, row.names = FALSE)
       }
     )
 
     # download hierarchical clustering data
     output$download_hierarchical <- downloadHandler(
       filename = function() {
-        paste("hierarchical-clustering-", Sys.Date(), ".csv", sep = "")
+        paste("hierarchical-clustering-with-expression-", Sys.Date(), ".csv", sep = "")
       },
       content = function(file) {
-        write.csv(hierarchical_distance_matrix(), file)
+        write.csv(hierarchical_distance_matrix(), file, row.names = FALSE)
       }
     )
 
     # Reading and storing expression data
     observeEvent(input$y_axis_var, {
-      if (input$y_axis_var == 2) {
-        groups <- dataset$selected_groups()
-        options <- c()
-        for (group in groups) {
-          options <- c(options, group)
-        }
-        output$y_axis_operations <- renderUI({
+      groups <- dataset$selected_groups()
+      options <- c()
+      for (group in groups) {
+        options <- c(options, group)
+      }
+      
+      output$y_axis_operations <- renderUI({
+        if(input$y_axis_var == 2) {
           fluidRow(
             column(6,
                    selectInput(session$ns("LFC_group_1"), "Group 1", options, selected = options[1])
             ),
             column(6,
                    selectInput(session$ns("LFC_group_2"), "Group 2", options, selected = options[2])
-            ),
+            )
           )
-        })
-
-        output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "LFC Cutoff", value = 1, step = 0.1)
-        })
-      } else {
-        output$y_axis_operations <- renderUI({
-          actionButton(NS(id, "run_analysis"), "Run Analysis")
-        })
-        output$y_cutoff <- renderUI({
-          numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05, min = 0, max = 1, step = 0.1)
-        })
-      }
+        } else {
+          # Return empty UI for ANOVA since we don't need additional controls
+          NULL
+        }
+      })
+      
+      output$y_cutoff <- renderUI({
+        if(input$y_axis_var == 1) {
+          tagList(
+            numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05, min = 0, max = 1, step = 0.1),
+            actionButton(NS(id, "run_analysis"), "Run Analysis")
+          )
+        } else {
+          numericInput(NS(id, "y_cutoff"), "Fold Change Cutoff", value = 1, step = 0.1,min = 0)
+        }
+      })
     })
-
+    
     observeEvent(input$cluster_options, {
       if (input$cluster_options == 1) {
         output$clustering_operations <- renderUI({
@@ -508,7 +516,7 @@ clusteringTabServer <- function(id, dataset) {
             div(class = "bottom-centered",
                 column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5, step = 0.1)),
                 # column(3, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                column(4, downloadButton(NS(id, "download_clusters"), "Download assigned clusters"))
+                column(4, downloadButton(NS(id, "download_clusters"), "Download clusters with expression"))
             )
           )
         })
@@ -518,7 +526,7 @@ clusteringTabServer <- function(id, dataset) {
           fluidRow(
             div(class = "bottom-centered",
                 # column(3,materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                column(6, downloadButton(NS(id, "download_hierarchical"), "Download distance matrix"))
+                column(6, downloadButton(NS(id, "download_hierarchical"), "Download hierarchical data with expression"))
             )
           )
         })
@@ -551,74 +559,70 @@ clusteringTabUI <- function(id) {
     add_busy_spinner(spin = "fading-circle", color = "#000000", position = "top-right"),
     tags$head(
       tags$style(HTML("
-      .bottom-centered {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-      }
-      .shiny-notification {
-        position: fixed;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%);
-        font-size: 16px;
-        color: white;
-        background-color: red;
-        padding: 10px;
-        border-radius: 5px;
-      }
-    "))
+        .bottom-centered {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .shiny-notification {
+          position: fixed;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%);
+          font-size: 16px;
+          color: white;
+          background-color: red;
+          padding: 10px;
+          border-radius: 5px;
+        }
+      "))
     ),
     titlePanel("Clustering of Gene Expression"),
-    # fluidRow(class = "bottom-centered",
-    #          column(2,
-    #                 selectInput(NS(id, "y_axis_var"), "Y Axis Variability",
-    #                             c("ANOVA" = 1, "LFC" = 2), selected = 1)
-    #          ),
-    #          column(4, uiOutput(NS(id, ("y_axis_operations"))))
-    # ),
-    # fluidRow(
-    #   div(class = "bottom-centered",
-    #       column(2, numericInput(NS(id, "x_cutoff"), "log2(Max)+1 Cutoff", value = 0, step = 0.1)),
-    #       column(2, uiOutput(NS(id, ("y_cutoff")))),
-    #       column(2, selectInput(NS(id, "cluster_options"), "Clustering Methods",
-    #                             choices = c("k means" = 1, "hierarchical" = 2), selected = 1)),
-    #       column(4, uiOutput(NS(id, ("clustering_operations"))))
-    #   )
-    # ),
-    # fluidRow(
-    #   column(6,
-    #          textOutput(NS(id, "number_of_genes")),
-    #          plotlyOutput(NS(id, "variable_genes_plot"), width = "80%", height = "560px")),
-    #   column(6, plotOutput(NS(id, "heatmap_plot"), height = "700px"))
-    # ),
-
+    
+    # Step 1: Variable Gene Selection
+    fluidRow(
+      column(12, 
+             h3("Select Variable Genes"),
+             hr()
+      )
+    ),
     fluidRow(
       column(4,
              div(class = "bottom-centered",
-                 column(12, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                 column(12, selectInput(NS(id, "cluster_options"), "Clustering Methods",
-                                        choices = c("k means" = 1, "hierarchical" = 2), selected = 1)),
-                 column(12,
-                        selectInput(NS(id, "y_axis_var"), "Y Axis Variability",
-                                    c("ANOVA" = 1, "LFC" = 2), selected = 1)),
-                 column(12, uiOutput(NS(id, "y_cutoff"))),
-                 column(12, numericInput(NS(id, "x_cutoff"), "log2(Max)+1 Cutoff", value = 0, step = 0.1)),
-                 column(12, uiOutput(NS(id, "clustering_operations"))),
-                 column(12, uiOutput(NS(id, "y_axis_operations"))),
+                 selectInput(NS(id, "y_axis_var"), "Y Axis Variability",
+                             c("ANOVA" = 1, "LFC" = 2), selected = 1),
+                 uiOutput(NS(id, "y_axis_operations")),
+                 numericInput(NS(id, "x_cutoff"), "log2(Max+1) Cutoff", value = 1, min = 0, step = 0.1),
+                 uiOutput(NS(id, "y_cutoff"))
              )
       ),
-      # column(8,
-      #        textOutput(NS(id, "number_of_genes")),
-      #        plotlyOutput(NS(id, "variable_genes_plot"), width = "600px", height = "600px"),
-      #        plotOutput(NS(id, "heatmap_plot"), width = "600px", height = "600px")
-      # )
-      column(4,
+      column(8,
              textOutput(NS(id, "number_of_genes")),
              plotlyOutput(NS(id, "variable_genes_plot"), width = "100%", height = "50vh")
-      ),
+      )
+    ),
+    
+    # Step 2: Clustering
+    fluidRow(
+      column(12, 
+             h3("Cluster Selected Genes"),
+             hr()
+      )
+    ),
+    fluidRow(
       column(4,
+             div(class = "bottom-centered",
+                 materialSwitch(inputId = NS(id, "clustering_grouped"), 
+                                label = "Cluster by group:", 
+                                value = FALSE, 
+                                status = "primary"),
+                 selectInput(NS(id, "cluster_options"), "Clustering Method",
+                             choices = c("k means" = 1, "hierarchical" = 2), selected = 1),
+                 uiOutput(NS(id, "clustering_operations"))
+             )
+      ),
+      column(8,
              plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "50vh")
       )
     )
