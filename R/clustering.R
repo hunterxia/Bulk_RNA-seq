@@ -514,7 +514,7 @@ clusteringTabServer <- function(id, dataset) {
         output$clustering_operations <- renderUI({
           fluidRow(
             div(class = "bottom-centered",
-                column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5, step = 0.1)),
+                column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5, step = 1)),
                 # column(3, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
                 column(4, downloadButton(NS(id, "download_clusters"), "Download clusters with expression"))
             )
