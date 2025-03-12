@@ -17,15 +17,15 @@ source("./R/pairwise _comparison.R")
 source("./R/clustering.R")
 source("./R/inidividual_gene.R")
 ui <- fluidPage(
-  titlePanel("RNA-seq Data Visualization App"),
+  titlePanel("Bulk RNA-seq Analysis App"),
   tabsetPanel(
     tabPanel(
       "Main",
       mainTabUI("main")
     ),
     tabPanel(
-      "Quality Control",
-      qcTabUI("qc")
+     "Quality Control",
+     qcTabUI("qc")
     ),
     tabPanel(
       "Global Comparison",

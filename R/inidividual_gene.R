@@ -12,7 +12,7 @@ individualGeneTabUI <- function(id) {
     add_busy_spinner(spin = "fading-circle", color = "#000000"),
     sidebarLayout(
       sidebarPanel(
-        selectInput(ns("select_gene"), "Select Gene", choices = c("Please wait..." = ""), multiple = TRUE)
+        selectInput(ns("select_gene"), "Select Gene(Filtered gene from main tab)", choices = c("Please wait..." = ""), multiple = TRUE)
       ),
       mainPanel(
         uiOutput(ns("gene_plots")),
