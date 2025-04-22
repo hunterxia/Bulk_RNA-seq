@@ -377,18 +377,51 @@ clusteringTabServer <- function(id, dataset) {
         order <- order(clusters$cluster)
         cor_matrix_ordered <- gene_expression_z[order,]
 
-        # built-in heatmap has high resolution, but does not have move over function
-        p <- pheatmap::pheatmap(cor_matrix_ordered, annotation_row = annotation_df,
-                                cluster_rows = FALSE,
-                                cluster_cols = FALSE,
-                                fontsize_row = 10,
-                                main = "K-means Clustered Matrix",
-                                treeheight_row = 30,
-                                labels_row = "",
-                                angle_col = 315,
-                                fontsize_col = 10,
-                                width = 10,
-                                height = 10)
+        # Basic interactive heatmap with simplified hover functionality
+        gene_labels <- data$Gene_Symbol[order]
+        sample_labels <- colnames(data_sample_expr)
+        
+        plot_data <- as.data.frame(cor_matrix_ordered)
+        plot_data$Gene <- gene_labels
+        plot_data_long <- pivot_longer(plot_data, cols = -Gene, names_to = "Sample", values_to = "Normalized_Value")
+        # Ensure no duplicates
+        plot_data_long <- distinct(plot_data_long, Gene, Sample, .keep_all = TRUE)
+        
+        # Add cluster information
+        plot_data_long$Cluster <- as.factor(clusters$cluster[order][match(plot_data_long$Gene, gene_labels)])
+        
+        # Add the original expression values for hover
+        original_values <- as.data.frame(as.matrix(data_sample_expr)[order,])
+        original_values$Gene <- gene_labels
+        original_values_long <- pivot_longer(original_values, cols = -Gene, names_to = "Sample", values_to = "Expression_Value")
+        # Ensure no duplicates
+        original_values_long <- distinct(original_values_long, Gene, Sample, .keep_all = TRUE)
+        
+        # Combine normalized and original values
+        plot_data_final <- left_join(plot_data_long, original_values_long, by = c("Gene", "Sample"), relationship = "one-to-one")
+        
+        # Create the plotly heatmap
+        p <- plot_ly(
+          data = plot_data_final,
+          x = ~Sample,
+          y = ~Gene,
+          z = ~Normalized_Value,
+          type = "heatmap",
+          colors = colorRamp(c("navy", "white", "firebrick3")),
+          text = ~paste(
+            "Gene:", Gene,
+            "<br>Sample:", Sample,
+            "<br>Expression Value:", round(Expression_Value, 2),
+            "<br>Normalized Value:", round(Normalized_Value, 4),
+            "<br>Cluster:", Cluster
+          ),
+          hoverinfo = "text"
+        ) %>%
+        layout(
+          title = "K-means Clustered Matrix",
+          xaxis = list(title = "", tickangle = 45),
+          yaxis = list(title = "")
+        )
 
         return(p)
       }
@@ -409,23 +442,56 @@ clusteringTabServer <- function(id, dataset) {
       
       hierarchical_distance_matrix(hier_download_df)
       
-      p <- pheatmap::pheatmap(gene_expression_z,
-                              cluster_rows = TRUE,
-                              cluster_cols = FALSE,
-                              clustering_distance_rows = row_distance_matrix,
-                              fontsize_row = 10,
-                              main = "Hierarchically Clustered Matrix",
-                              treeheight_row = 30,
-                              angle_col = 315,
-                              show_rownames = FALSE,
-                              fontsize_col = 10,
-                              width = 10,
-                              height = 10)
+      # Create a simplified interactive hierarchical heatmap
+      hclust_rows <- hclust(row_distance_matrix, method = "complete")
+      
+      # Reorder data by hierarchical clustering
+      hc_order <- hclust_rows$order
+      gene_labels <- data$Gene_Symbol[hc_order]
+      
+      # Prepare the long-format data for plotly
+      plot_data <- as.data.frame(gene_expression_z[hc_order,])
+      plot_data$Gene <- gene_labels
+      plot_data_long <- pivot_longer(plot_data, cols = -Gene, names_to = "Sample", values_to = "Normalized_Value")
+      # Ensure no duplicates
+      plot_data_long <- distinct(plot_data_long, Gene, Sample, .keep_all = TRUE)
+      
+      # Add the original expression values for hover
+      original_values <- as.data.frame(as.matrix(data_sample_expr)[hc_order,])
+      original_values$Gene <- gene_labels
+      original_values_long <- pivot_longer(original_values, cols = -Gene, names_to = "Sample", values_to = "Expression_Value")
+      # Ensure no duplicates
+      original_values_long <- distinct(original_values_long, Gene, Sample, .keep_all = TRUE)
+      
+      # Combine normalized and original values
+      plot_data_final <- left_join(plot_data_long, original_values_long, by = c("Gene", "Sample"), relationship = "one-to-one")
+      
+      # Create the plotly heatmap
+      p <- plot_ly(
+        data = plot_data_final,
+        x = ~Sample,
+        y = ~Gene,
+        z = ~Normalized_Value,
+        type = "heatmap",
+        colors = colorRamp(c("navy", "white", "firebrick3")),
+        text = ~paste(
+          "Gene:", Gene,
+          "<br>Sample:", Sample,
+          "<br>Expression Value:", round(Expression_Value, 2),
+          "<br>Normalized Value:", round(Normalized_Value, 4)
+        ),
+        hoverinfo = "text"
+      ) %>%
+      layout(
+        title = "Hierarchically Clustered Matrix",
+        xaxis = list(title = "", tickangle = 45),
+        yaxis = list(title = "")
+      )
 
       return(p)
     }
 
-    output$heatmap_plot <- renderPlot({
+    output$heatmap_plot <- renderPlotly({
       req(dataset$filtered_data(), selected_variable_genes())
       variable_genes <- selected_variable_genes()
       gene_data <- dataset$filtered_data()
@@ -449,8 +515,7 @@ clusteringTabServer <- function(id, dataset) {
       # by default, show by each sample
       heatmap_df <- gene_data %>%
         inner_join(variable_genes, by = "Symbol")
-      p <- create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
-      return(p)
+      create_cluster_plot(heatmap_df, input$cluster_options, input$clustering_k)
     })
 
     # download k-means clustering data
@@ -515,8 +580,7 @@ clusteringTabServer <- function(id, dataset) {
           fluidRow(
             div(class = "bottom-centered",
                 column(5, numericInput(NS(id, "clustering_k"), "K Values", value = 5, step = 1)),
-                # column(3, materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
-                column(4, downloadButton(NS(id, "download_clusters"), "Download clusters with expression"))
+                column(6, downloadButton(NS(id, "download_clusters"), "Download clusters with expression"))
             )
           )
         })
@@ -525,7 +589,6 @@ clusteringTabServer <- function(id, dataset) {
         output$clustering_operations <- renderUI({
           fluidRow(
             div(class = "bottom-centered",
-                # column(3,materialSwitch(inputId = NS(id, "clustering_grouped"), label = "Show by group: ", value = FALSE, status = "primary")),
                 column(6, downloadButton(NS(id, "download_hierarchical"), "Download hierarchical data with expression"))
             )
           )
@@ -576,6 +639,16 @@ clusteringTabUI <- function(id) {
           padding: 10px;
           border-radius: 5px;
         }
+        .js-plotly-plot {
+          margin: 0 auto;
+        }
+        .plotly-heatmap {
+          width: 100% !important;
+          height: 100% !important;
+        }
+        .modebar {
+          background-color: rgba(255, 255, 255, 0.8) !important;
+        }
       "))
     ),
     titlePanel("Clustering of Gene Expression"),
@@ -623,7 +696,7 @@ clusteringTabUI <- function(id) {
              )
       ),
       column(8,
-             plotOutput(NS(id, "heatmap_plot"), width = "100%", height = "50vh")
+             plotlyOutput(NS(id, "heatmap_plot"), width = "100%", height = "60vh")
       )
     )
   )

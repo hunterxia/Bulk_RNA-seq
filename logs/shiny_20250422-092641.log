@@ -1,0 +1,10 @@
+INFO [2025-04-22 09:26:41] Shiny session started
+INFO [2025-04-22 09:26:41] PCA and Correlation tab initialized
+INFO [2025-04-22 09:26:41] Initializing Pairwise Comparison Tab
+INFO [2025-04-22 09:26:41] Loading expression data into cache asynchronously
+INFO [2025-04-22 09:26:44] Loading expression data into cache asynchronously
+INFO [2025-04-22 09:26:50] Processing PCA data with 12 samples
+INFO [2025-04-22 09:26:50] Filtered to 19987 genes with non-zero expression
+INFO [2025-04-22 09:26:50] PCA selector options updated with 12 choices
+INFO [2025-04-22 09:26:53] Running analysis
+INFO [2025-04-22 09:27:03] ANOVA completed: 12691 genes processed
