@@ -22,11 +22,12 @@ PairwiseComparisonTabUI <- function(id) {
                       "Deseq" = "deseq"
                     )
         ),
+        actionButton(ns("run_analysis"), "Run Analysis", class = "btn-primary", style = "margin-bottom: 15px;"),
         numericInput(
           ns("fc_cutoff"),
           "Fold Change Cutoff",
           value = 2,
-          step = 0.05
+          step = 0.5
         ),
         numericInput(
           ns("pvalue_cutoff"),
@@ -34,14 +35,12 @@ PairwiseComparisonTabUI <- function(id) {
           value = 0.05,
           min = 0,
           max = 1,
-          step = 0.01
+          step = 0.05
         ),
         checkboxInput(ns("adjust_pvalue"), "Use Adjusted P-Value", value = FALSE),
         sliderInput(ns("volcano_y_range"), "Volcano Plot Y-axis Range", min = 0, max = 20, value = c(0, 10), step = 0.5),
         sliderInput(ns("MA_y_range"), "MA Plot Y-axis Range", min = -10, max = 10, value = c(-10, 10), step = 0.5),
-        actionButton(ns("run_analysis"), "Run Analysis"),
-        # downloadButton(ns("download_all"), "Download Full DEG Output"),
-        # downloadButton(ns("download_filtered"), "Download Filtered DEGs")
+        downloadButton(ns("download_all_results"), "Download All DEG Results")
       ),
       mainPanel(
         tabsetPanel(type = "tabs",
@@ -51,8 +50,12 @@ PairwiseComparisonTabUI <- function(id) {
                     tabPanel("MA Plot",
                              textOutput(ns("ma_gene_counts")),
                              plotlyOutput(ns("ma_plot"), width = "100%", height = "100%")),
-                    tabPanel("Positive DEG Table", DTOutput(ns("pos_deg_table")), downloadButton(ns("download_all"), "Download Full DEG Output"),),
-                    tabPanel("Negative DEG Table", DTOutput(ns("neg_deg_table")), downloadButton(ns("download_filtered"), "Download Filtered DEGs"))
+                    tabPanel("Positive DEG Table", 
+                             DTOutput(ns("pos_deg_table")), 
+                             downloadButton(ns("download_positive"), "Download Positive DEGs")),
+                    tabPanel("Negative DEG Table", 
+                             DTOutput(ns("neg_deg_table")), 
+                             downloadButton(ns("download_negative"), "Download Negative DEGs"))
         )
       )
     )
@@ -187,10 +190,16 @@ generate_volcano_plot <- function(results, group1_name, group2_name, y_range = N
   up_genes <- sum(results$Regulation == "Upregulated", na.rm = TRUE)
   down_genes <- sum(results$Regulation == "Downregulated", na.rm = TRUE)
 
+  # Prepare Y values for plotting, capping them if y_range is set
+  results$plot_y_volcano <- -log10(results$PValue)
+  if (!is.null(y_range) && is.numeric(y_range) && length(y_range) == 2 && !is.na(y_range[2])) {
+    results$plot_y_volcano[results$plot_y_volcano > y_range[2]] <- y_range[2]
+  }
+
   plotly_obj <- plot_ly(
     data = results,
     x = ~Log2FoldChange,
-    y = ~-log10(PValue),
+    y = ~plot_y_volcano, # Use the capped Y values
     type = 'scatter',
     mode = 'markers',
     color = ~Regulation,
@@ -244,6 +253,17 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
     stringsAsFactors = FALSE
   )
 
+  # Prepare Y values for plotting, capping them if y_range is set
+  ma_data$plot_y_ma <- ma_data$M
+  if (!is.null(y_range) && is.numeric(y_range) && length(y_range) == 2) {
+    if (!is.na(y_range[1])) {
+      ma_data$plot_y_ma[ma_data$plot_y_ma < y_range[1]] <- y_range[1]
+    }
+    if (!is.na(y_range[2])) {
+      ma_data$plot_y_ma[ma_data$plot_y_ma > y_range[2]] <- y_range[2]
+    }
+  }
+
   total_genes <- nrow(ma_data)
   up_genes <- sum(ma_data$Regulation == "Upregulated", na.rm = TRUE)
   down_genes <- sum(ma_data$Regulation == "Downregulated", na.rm = TRUE)
@@ -255,7 +275,7 @@ generate_ma_plot <- function(exp_data, group1_samples, group2_samples, results, 
   plotly_obj <- plot_ly(
     data = ma_data,
     x = ~A,
-    y = ~M,
+    y = ~plot_y_ma, # Use the capped Y values
     type = 'scatter',
     mode = 'markers',
     color = ~Regulation,
@@ -298,6 +318,9 @@ PairwiseComparisonTabServer <- function(id, dataset) {
     # Disable download buttons initially
     shinyjs::disable("download_all")
     shinyjs::disable("download_filtered")
+    shinyjs::disable("download_all_results")
+    shinyjs::disable("download_positive")
+    shinyjs::disable("download_negative")
 
     # Update group selection dropdowns based on available group names
     observe({
@@ -340,6 +363,9 @@ PairwiseComparisonTabServer <- function(id, dataset) {
 
         shinyjs::enable("download_all")
         shinyjs::enable("download_filtered")
+        shinyjs::enable("download_all_results")
+        shinyjs::enable("download_positive")
+        shinyjs::enable("download_negative")
 
         # Update DEG tables and gene counts
         pos_results <- res[res$Regulation == "Upregulated",]
@@ -420,6 +446,33 @@ PairwiseComparisonTabServer <- function(id, dataset) {
       content = function(file) {
         req(reactive_deg_results())
         write.csv(subset(reactive_deg_results(), Regulation != "Not Significant"), file, row.names = FALSE)
+      }
+    )
+    output$download_all_results <- downloadHandler(
+      filename = function() { "all_deg_results.csv" },
+      content = function(file) {
+        req(reactive_deg_results())
+        write.csv(reactive_deg_results(), file, row.names = FALSE)
+      }
+    )
+    output$download_positive <- downloadHandler(
+      filename = function() { 
+        paste0("positive_degs_", input$select_group1, "_vs_", input$select_group2, ".csv") 
+      },
+      content = function(file) {
+        req(reactive_deg_results())
+        positive_degs <- subset(reactive_deg_results(), Regulation == "Upregulated")
+        write.csv(positive_degs, file, row.names = FALSE)
+      }
+    )
+    output$download_negative <- downloadHandler(
+      filename = function() { 
+        paste0("negative_degs_", input$select_group1, "_vs_", input$select_group2, ".csv") 
+      },
+      content = function(file) {
+        req(reactive_deg_results())
+        negative_degs <- subset(reactive_deg_results(), Regulation == "Downregulated")
+        write.csv(negative_degs, file, row.names = FALSE)
       }
     )
   })

@@ -7,6 +7,9 @@ library(shinybusy)
 library(heatmaply)
 library(logger)
 library(pheatmap)
+library(dplyr)
+library(tidyr)
+library(shinyWidgets)
 
 # Define server-side module for the PCA and Correlation tab
 PCACorrelationTabServer <- function(id, dataset) {
@@ -57,93 +60,6 @@ PCACorrelationTabServer <- function(id, dataset) {
 
       return(df_transposed)
     }
-
-    # create_pca_plot <- function() {
-    #   log_info("Creating PCA plot: PC{input$pc_x} vs PC{input$pc_y}")
-    #
-    #   req(input$pc_x, input$pc_y, dataset$expression_data(), dataset$groups_data(), dataset$selected_samples_data())
-    #   df <- dataset$filtered_data()
-    #   groups <- dataset$groups_data()
-    #   selected_samples <- dataset$selected_samples_data()
-    #
-    #   colnames(df)[1] <- "Symbols"
-    #   colnames(df)[2] <- "Genes"
-    #   colnames(groups)[1] <- "Samples"
-    #   colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
-    #
-    #   pc_x <- as.numeric(input$pc_x)
-    #   pc_y <- as.numeric(input$pc_y)
-    #
-    #   df_transposed <- get_pca_data(df, groups, selected_samples)
-    #   pca_comp <- prcomp(df_transposed, scale. = TRUE, center = TRUE)
-    #   percentVar <- pca_comp$sdev^2 / sum(pca_comp$sdev^2)
-    #   pca_df <- data.frame(pca_comp$x, sampleLab = rownames(pca_comp$x), check.names = FALSE)
-    #
-    #   if (input$pca_grouped) {
-    #     group_color <- groups %>%
-    #       group_by(Color)
-    #     pca_df <- pca_df %>%
-    #       left_join(group_color, by = c("sampleLab" = "EXPERIMENTAL_GROUP"))
-    #     colors <- unique(pca_df$Color)
-    #     names(colors) <- unique(pca_df$EXPERIMENTAL_GROUP)
-    #     scale_color <- scale_color_manual(values = colors)
-    #   } else {
-    #     pca_df <- pca_df %>%
-    #       left_join(groups, by = c("sampleLab" = "Samples"))
-    #     colors <- pca_df$Color
-    #     names(colors) <- pca_df$sampleLab
-    #     scale_color <- scale_color_manual(values = colors)
-    #     #scale_color <- scale_color_viridis(discrete = TRUE)
-    #   }
-    #   pca_download_data(pca_df)
-    #
-    #   x_col <- paste0("PC", pc_x)
-    #   y_col <- paste0("PC", pc_y)
-    #
-    #   plotly_obj <- plot_ly(
-    #     data = pca_df,
-    #     x = ~get(x_col),
-    #     y = ~get(y_col),
-    #     type = 'scatter',
-    #     mode = 'markers',
-    #     color = ~color_var,
-    #     colors = color_mapping,
-    #     text = ~paste("Sample:", sampleLab,
-    #                   "<br>", x_col, ":", round(get(x_col), 2),
-    #                   "<br>", y_col, ":", round(get(y_col), 2)),
-    #     hoverinfo = "text"
-    #   ) %>%
-    #     layout(
-    #       title = sprintf("PCA Plot: %s vs %s", x_col, y_col),
-    #       xaxis = list(title = paste0(x_col, ": ", round(percentVar[pc_x] * 100, 1), "% variance")),
-    #       yaxis = list(title = paste0(y_col, ": ", round(percentVar[pc_y] * 100, 1), "% variance")),
-    #       legend = list(orientation = "v", x = 1, y = 1)
-    #     )
-    #
-    #   log_info("PCA plot created successfully")
-    #
-    #   plotly_obj
-
-
-    # p <- pca_df %>%
-    #   ggplot(aes(x = pca_df[, pc_x], y = pca_df[, pc_y], label = sampleLab, color = sampleLab,
-    #              text = paste("Sample:", sampleLab, "<br>PC", pc_x, ":", pca_df[, pc_x], "<br>PC", pc_y, ":", pca_df[, pc_y]))) +
-    #   geom_point(size = 5) +
-    #   labs(x = paste0("PC", pc_x, ": ", round(percentVar[pc_x] * 100, 1), "% variance"),
-    #        y = paste0("PC", pc_y, ": ", round(percentVar[pc_y] * 100, 1), "% variance")) +
-    #   scale_color +
-    #   theme_minimal() +
-    #   theme(legend.position = "right") +
-    #   theme_linedraw(base_size = 16) +
-    #   theme(panel.grid.major = element_blank(),
-    #         panel.grid.minor = element_blank(),
-    #         legend.title = element_blank(),
-    #         legend.text = element_text(size = 10),
-    #         legend.position = "right")
-    #
-    # ggplotly(p, tooltip = "text")
-    # log_info("PCA plot created successfully")
-    # }
 
     # Function to create the PCA plot using plotly
     create_pca_plot <- function() {
@@ -221,7 +137,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       x_col <- paste0("PC", pc_x)
       y_col <- paste0("PC", pc_y)
 
-      # Create a plotly scatter plot for PCA
+      # Create a plotly scatter plot for PCA with square aspect ratio
       plotly_obj <- plot_ly(
         data = pca_df,
         x = ~get(x_col),
@@ -234,13 +150,24 @@ PCACorrelationTabServer <- function(id, dataset) {
         text = ~paste("Sample:", sampleLab,
                       "<br>", x_col, ":", round(get(x_col), 2),
                       "<br>", y_col, ":", round(get(y_col), 2)),
-        hoverinfo = "text"
+        hoverinfo = "text",
+        width = 600,
+        height = 600
       ) %>%
         layout(
           title = sprintf("PCA Plot: %s vs %s", x_col, y_col),
-          xaxis = list(title = paste0(x_col, ": ", round(percentVar[pc_x] * 100, 1), "% variance")),
-          yaxis = list(title = paste0(y_col, ": ", round(percentVar[pc_y] * 100, 1), "% variance")),
-          legend = list(orientation = "v", x = 1, y = 1)
+          xaxis = list(
+            title = paste0(x_col, ": ", round(percentVar[pc_x] * 100, 1), "% variance"),
+            scaleanchor = "y",
+            scaleratio = 1
+          ),
+          yaxis = list(
+            title = paste0(y_col, ": ", round(percentVar[pc_y] * 100, 1), "% variance"),
+            constrain = "domain"
+          ),
+          legend = list(orientation = "v", x = 1, y = 1),
+          autosize = FALSE,
+          margin = list(l = 80, r = 80, b = 80, t = 100)
         )
 
       log_info("PCA plot created successfully")
@@ -248,63 +175,7 @@ PCACorrelationTabServer <- function(id, dataset) {
       plotly_obj
     }
 
-    # create_correlation_plot <- function(data, groups, Pearson_or_Spearman) {
-    #   log_info("Creating correlation plot using {Pearson_or_Spearman} coefficient")
-    #   numerical_data <- data[, 3:ncol(data)]
-    #
-    #   if (Pearson_or_Spearman == "pearson") {
-    #     title_hierarchical <- "Pearson's Correlation Matrix"
-    #     cor_matrix <- cor(numerical_data, method = "pearson")
-    #   } else {
-    #     title_hierarchical <- "Spearman's Correlation Matrix"
-    #     cor_matrix <- cor(numerical_data, method = "spearman")
-    #   }
-    #   breaks <- seq(0, 1, length.out = 100)
-    #
-    #   if (input$pca_grouped) {
-    #     annotation_df <- data.frame(Samples = groups["EXPERIMENTAL_GROUP"], color = groups["Color"])
-    #     annotation_df <- unique(annotation_df);
-    #     annotation_row <- data.frame(Samples = annotation_df$EXPERIMENTAL_GROUP)
-    #     rownames(annotation_row) <- annotation_df$EXPERIMENTAL_GROUP
-    #     annotation_colors <- list(
-    #       Samples = setNames(annotation_df$Color, annotation_df$EXPERIMENTAL_GROUP)
-    #     )
-    #     filtered_row_side_colors <- rownames(cor_matrix)
-    #   } else {
-    #     annotation_df <- data.frame(Samples = groups["Samples"], color = groups["Color"])
-    #     annotation_row <- data.frame(Samples = annotation_df$Samples)
-    #     rownames(annotation_row) <- annotation_df$Samples
-    #     annotation_colors <- list(
-    #       Samples = setNames(annotation_df$Color, annotation_df$Samples)
-    #     )
-    #     filtered_row_side_colors <- annotation_row$Samples[annotation_row$Samples %in% rownames(cor_matrix)]
-    #   }
-    #
-    #   corr_download_data(cor_matrix)
-    #   custom_colors <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))(100)
-    #   p <- heatmaply(
-    #     cor_matrix,
-    #     Rowv = FALSE,
-    #     Colv = FALSE,
-    #     row_side_colors = rownames(cor_matrix),
-    #     row_side_palette = annotation_colors$Samples,
-    #     main = title_hierarchical,
-    #     colors = custom_colors(100),
-    #     scale_fill_gradient_fun = ggplot2::scale_fill_gradientn(colors = custom_colors, limits = c(input$scale[1], input$scale[2])),
-    #     fontsize_row = 10,
-    #     fontsize_col = 10,
-    #     grid_color = "grey",
-    #     xlab = NULL,
-    #     ylab = NULL,
-    #     colorbar_thickness = 10,
-    #     label_names = c("X-axis", "Y-axis", "Value")
-    #   ) %>% layout(showlegend = FALSE)
-    #
-    #   log_info("Correlation plot created successfully")
-    #   return(p)
-    # }
-
-    # Function to create the correlation heatmap using pheatmap
+    # Function to create the correlation heatmap using heatmaply for interactive hover
     create_correlation_plot <- function(data, groups, Pearson_or_Spearman) {
       log_info("Creating correlation plot using {Pearson_or_Spearman} coefficient")
 
@@ -323,14 +194,13 @@ PCACorrelationTabServer <- function(id, dataset) {
       custom_color_fun <- colorRampPalette(c("#5074AF", "#FFFFFF", "#FFFF66", "#CA4938"))
       custom_colors <- custom_color_fun(100)
 
-      # Create a custom color palette for the heatmap
+      # Set up scale limits based on user input or data range
       scale_limits <- if (!is.null(input$scale)) {
         c(input$scale[1], input$scale[2])
       } else {
         c(min(cor_matrix, na.rm = TRUE), max(cor_matrix, na.rm = TRUE))
       }
-      breaks <- seq(scale_limits[1], scale_limits[2], length.out = 101)
-
+      
       # Set up annotation data and colors based on grouping option
       if (input$pca_grouped) {
         # Create annotation data frame from group information for experimental groups
@@ -340,16 +210,13 @@ PCACorrelationTabServer <- function(id, dataset) {
           stringsAsFactors = FALSE
         )
         annotation_df <- unique(annotation_df)
-
-        annotation_row <- data.frame(Samples = annotation_df$Samples, row.names = annotation_df$Samples, stringsAsFactors = FALSE)
-
-        row_annotation <- annotation_row[rownames(annotation_row) %in% rownames(cor_matrix), , drop = FALSE]
-
-        filtered_samples <- rownames(row_annotation)
-
-        annotation_colors <- list(
-          Samples = setNames(annotation_df$Color, annotation_df$Samples)[filtered_samples]
-        )
+        
+        row_side_colors <- data.frame(Group = annotation_df$Samples)
+        rownames(row_side_colors) <- annotation_df$Samples
+        row_side_colors <- row_side_colors[rownames(row_side_colors) %in% rownames(cor_matrix), , drop = FALSE]
+        
+        # Create color mapping for side colors
+        row_side_palette <- setNames(annotation_df$Color, annotation_df$Samples)
       } else {
         annotation_df <- data.frame(
           Samples = groups$Samples,
@@ -357,25 +224,43 @@ PCACorrelationTabServer <- function(id, dataset) {
           stringsAsFactors = FALSE
         )
         annotation_df <- unique(annotation_df)
-        annotation_row <- data.frame(Samples = annotation_df$Samples, row.names = annotation_df$Samples, stringsAsFactors = FALSE)
-        row_annotation <- annotation_row[rownames(annotation_row) %in% rownames(cor_matrix), , drop = FALSE]
-        filtered_samples <- rownames(row_annotation)
-        annotation_colors <- list(
-          Samples = setNames(annotation_df$Color, annotation_df$Samples)[filtered_samples]
-        )
+        
+        row_side_colors <- data.frame(Sample = annotation_df$Samples)
+        rownames(row_side_colors) <- annotation_df$Samples
+        row_side_colors <- row_side_colors[rownames(row_side_colors) %in% rownames(cor_matrix), , drop = FALSE]
+        
+        # Create color mapping for side colors
+        row_side_palette <- setNames(annotation_df$Color, annotation_df$Samples)
       }
 
       # Save the correlation matrix for download purposes
       corr_download_data(cor_matrix)
-
-      # Create the heatmap using pheatmap with silent = TRUE to capture the object
+      
+      # Create the interactive heatmap using heatmaply with simplified configuration
+      heatmap_plot <- heatmaply(
+        cor_matrix,
+        colors = custom_colors,
+        limits = scale_limits,
+        main = title_hierarchical,
+        Rowv = input$hierarchical_clustering,
+        Colv = input$hierarchical_clustering,
+        fontsize_row = 10, 
+        fontsize_col = 10,
+        grid_color = "grey",
+        width = 600,
+        height = 600,
+        showticklabels = c(TRUE, TRUE),
+        column_text_angle = 45,
+        dendrogram = if(input$hierarchical_clustering) "both" else "none",
+        margins = c(80, 80, 100, 100)
+      )
+      
+      # Store the heatmap object for download (using a pheatmap version for PDF download)
       pheatmap_obj <- pheatmap::pheatmap(
         mat = cor_matrix,
         color = custom_colors,
-        breaks = breaks,
+        breaks = seq(scale_limits[1], scale_limits[2], length.out = 101),
         main = title_hierarchical,
-        annotation_row = row_annotation,
-        annotation_colors = annotation_colors,
         cluster_rows = input$hierarchical_clustering,
         cluster_cols = input$hierarchical_clustering,
         fontsize_row = 10,
@@ -383,25 +268,25 @@ PCACorrelationTabServer <- function(id, dataset) {
         border_color = "grey",
         silent = TRUE
       )
-
-      # Store the heatmap object for download
+      
       heatmap_obj(pheatmap_obj)
-      log_info("Correlation plot created successfully")
+      log_info("Interactive correlation plot created successfully")
 
-      return(pheatmap_obj)
+      return(heatmap_plot)
     }
 
     # Render the PCA plot using Plotly
     output$pca <- renderPlotly({
-      req(dataset$expression_data())
+      req(dataset$filtered_data(), dataset$groups_data(), dataset$selected_samples_data())
       create_pca_plot()
     })
 
-    # Render the correlation heatmap plot
-    output$correlation <- renderPlot({
+    # Render the correlation heatmap plot using plotly for interactivity
+    output$correlation <- renderPlotly({
       req(dataset$filtered_data(), dataset$groups_data())
       gene_data <- dataset$filtered_data()
       groups <- dataset$groups_data()
+      
       colnames(gene_data)[1] <- "Genes"
       colnames(gene_data)[2] <- "Symbols"
       colnames(groups)[1] <- "Samples"
@@ -418,20 +303,24 @@ PCACorrelationTabServer <- function(id, dataset) {
           group_by(Genes, Symbols, EXPERIMENTAL_GROUP) %>%
           summarize(Values = sum(Values), .groups = "drop")
 
-        data <- pivot_wider(gene_data_long_grouped_sum, names_from = EXPERIMENTAL_GROUP, values_from = Values, values_fill = list(value = 0))
+        data <- pivot_wider(gene_data_long_grouped_sum, 
+                            names_from = EXPERIMENTAL_GROUP, 
+                            values_from = Values, 
+                            values_fill = list(value = 0))
       } else {
         data <- gene_data
       }
-
-      # if (input$clustered) {
-      #   plot <- create_clustering_plot(data, groups, input$coefficient)
-      # } else {
-      #   plot <- create_correlation_plot(data, groups, input$coefficient)
-      # }
-      plot <- create_correlation_plot(data, groups, input$coefficient)
-
+      
+      plot <- tryCatch({
+        create_correlation_plot(data, groups, input$coefficient)
+      }, error = function(e) {
+        log_error("Error creating correlation plot: {e$message}")
+        return(plot_ly() %>% 
+                add_annotations(text = paste("Error creating plot:", e$message), 
+                                showarrow = FALSE))
+      })
+      
       return(plot)
-
     })
 
     # download pca data
@@ -526,152 +415,133 @@ PCACorrelationTabUI <- function(id) {
   fluidPage(
     tags$head(
       tags$style(HTML("
-      #plot-container {
+      .plot-container {
         width: 100%;
-        height: 0; /* 初始高度设为0 */
-        padding-bottom: 100%;
-        position: relative;
+        height: 600px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        padding: 5px;
+        background-color: #ffffff;
       }
-      #pca_correlation-correlation {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
+      .control-panel {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e0e0;
       }
-      .bottom-centered {
-        display: flex;
-        align-items: center;
-        flex-direction: row;
+      .control-section {
+        margin-bottom: 10px;
       }
-      .inline-row {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-
+      .plot-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2c3e50;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 5px;
       }
-
-
+      .btn-download {
+        margin-right: 5px;
+      }
+      .scale-slider {
+        margin-top: 10px;
+        padding: 10px 5px;
+      }
+      .plot-panel {
+        margin-bottom: 30px;
+      }
     "))
     ),
-    titlePanel("PCA and Correlation"),
-    # fluidRow(
-    #   column(6,
-    #          fluidRow(class = "bottom-centered",
-    #                   column(3,
-    #                          materialSwitch(inputId = NS(id, "pca_grouped"), label = "Show by group: ", value = FALSE, status = "primary")
-    #                   ),
-    #                   column(3,
-    #                          selectInput(NS(id, "pc_x"), "X Axis:",
-    #                                      c("PC1" = 1), selected = 1)
-    #                   ),
-    #                   column(3,
-    #                          selectInput(NS(id, "pc_y"), "Y Axis:",
-    #                                      c("PC2" = 2), selected = 2)
-    #                   ),
-    #                   column(3,
-    #                          downloadButton(NS(id, "download_pca"), "Download PC coordinates")
-    #                   ),
-    #          ),
-    #          plotlyOutput(NS(id, "pca"), width = "100%", height = "700px")
-    #   ),
-    #   column(6,
-    #          fluidRow(class = "bottom-centered",
-    #                   column(4,
-    #                          selectInput(NS(id, "coefficient"), "Coefficient:",
-    #                                      c("Pearson’s coefficient" = "pearson",
-    #                                        " Spearman’s rank coefficient" = "spearman"))
-    #                   ),
-    #                   column(3,
-    #                          sliderInput(NS(id, "scale"),
-    #                                      "Scale:",
-    #                                      min = -1,
-    #                                      max = 1,
-    #                                      step = 0.05,
-    #                                      value = c(0, 1))
-    #                   ),
-    #                   # column(3,
-    #                   #        materialSwitch(inputId = NS(id, "clustered"), label = "Hierarchical Clustering: ", value = FALSE, status = "primary")
-    #                   # ),
-    #                   column(2,
-    #                          downloadButton(NS(id, "download_corr"), "Download correlations")
-    #                   )
-    #          ),
-    #          add_busy_spinner(spin = "fading-circle", color = "#000000"),
-    #          div(id = "plot-container",
-    #              plotOutput(NS(id, "correlation"), height = "85%")
-    #          )
-    #
-    #   )
-    # )
-
+    titlePanel("Global Comparison"),
+    
     fluidRow(
-      column(6,
-             fluidRow(
-               column(6,
-                      materialSwitch(inputId = NS(id, "pca_grouped"),
-                                     label = "Show by group: ",
-                                     value = FALSE,
-                                     status = "primary")
-               ),
-               column(6, materialSwitch(inputId = NS(id, "hierarchical_clustering"),
-                                        label = "Hierarchical Clustering: ",
-                                        value = FALSE,
-                                        status = "primary")
-               )
-             ),
-             fluidRow(
-               column(12,
-                      downloadButton(NS(id, "download_heatmap"), "Download Heatmap")
-               )
-             ),
-             fluidRow(
-               class = "inline-row",
-               column(4,
-                      selectInput(NS(id, "pc_x"),
-                                  "X Axis:",
-                                  c("PC1" = 1),
-                                  selected = 1)
-               ),
-               column(4,
-                      selectInput(NS(id, "pc_y"),
-                                  "Y Axis:",
-                                  c("PC2" = 2),
-                                  selected = 2)
-               ),
-               column(4,
-                      downloadButton(NS(id, "download_pca"), "Download PC coordinates")
-               ),
-             ),
-             plotlyOutput(NS(id, "pca"), width = "100%", height = "700px")
+      column(6, 
+        div(class = "plot-panel",
+          h4("Principal Component Analysis", class = "plot-title"),
+          div(class = "control-panel",
+            fluidRow(
+              column(4,
+                div(class = "control-section",
+                  materialSwitch(inputId = NS(id, "pca_grouped"),
+                               label = "Show by group", 
+                               value = FALSE,
+                               status = "primary")
+                )
+              ),
+              column(4, 
+                div(class = "control-section",
+                  selectInput(NS(id, "pc_x"),
+                            "X Axis:",
+                            c("PC1" = 1),
+                            selected = 1)
+                )
+              ),
+              column(4, 
+                div(class = "control-section",
+                  selectInput(NS(id, "pc_y"),
+                            "Y Axis:",
+                            c("PC2" = 2),
+                            selected = 2)
+                )
+              )
+            ),
+            div(class = "control-section text-right",
+              downloadButton(NS(id, "download_pca"), "Download PC coordinates", 
+                            class = "btn-sm btn-primary btn-download")
+            )
+          ),
+          div(class = "plot-container",
+            plotlyOutput(NS(id, "pca"), height = "100%", width = "100%")
+          )
+        )
       ),
       column(6,
-             fluidRow(
-               class = "inline-row",
-               column(4,
-                      selectInput(NS(id, "coefficient"),
-                                  "Coefficient:",
-                                  c("Pearson’s coefficient" = "pearson",
-                                    " Spearman’s rank coefficient" = "spearman"))
-               ),
-               column(3,
-                      sliderInput(NS(id, "scale"),
-                                  "Scale:",
-                                  min = -1,
-                                  max = 1,
-                                  step = 0.05,
-                                  value = c(0, 1))
-               ),
-               column(2,
-                      downloadButton(NS(id, "download_corr"), "Download correlations")
-               )
-             ),
-             add_busy_spinner(spin = "fading-circle", color = "#000000"),
-             div(id = "plot-container",
-                 plotOutput(NS(id, "correlation"), height = "85%")
-             )
+        div(class = "plot-panel",
+          h4("Correlation Heatmap", class = "plot-title"),
+          div(class = "control-panel",
+            fluidRow(
+              column(4,
+                div(class = "control-section",
+                  materialSwitch(inputId = NS(id, "hierarchical_clustering"),
+                               label = "Hierarchical Clustering", 
+                               value = FALSE,
+                               status = "primary")
+                )
+              ),
+              column(4,
+                div(class = "control-section",
+                  selectInput(NS(id, "coefficient"),
+                            "Coefficient:",
+                            c("Pearson's" = "pearson",
+                              "Spearman's" = "spearman"))
+                )
+              ),
+              column(4,
+                div(class = "control-section scale-slider",
+                  sliderInput(NS(id, "scale"),
+                            "Color Scale:",
+                            min = -1,
+                            max = 1,
+                            step = 0.05,
+                            value = c(0, 1))
+                )
+              )
+            ),
+            div(class = "control-section text-right",
+              downloadButton(NS(id, "download_corr"), "Download Correlations", 
+                            class = "btn-sm btn-primary btn-download"),
+              downloadButton(NS(id, "download_heatmap"), "Download Heatmap", 
+                            class = "btn-sm btn-primary btn-download")
+            )
+          ),
+          div(class = "plot-container",
+            plotlyOutput(NS(id, "correlation"), height = "100%", width = "100%")
+          )
+        )
       )
-    ))
+    )
+  )
 }
 

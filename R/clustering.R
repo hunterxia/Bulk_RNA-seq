@@ -16,6 +16,7 @@ clusteringTabServer <- function(id, dataset) {
     samples_anova_results <- reactiveVal()
     clusters_download_data <- reactiveVal()
     hierarchical_distance_matrix <- reactiveVal()
+    variability_plot_data_cache <- reactiveVal(NULL) # Cache for variability plot base data
 
     # Apply filters based on user inputs
     observeEvent(input$run_analysis, {
@@ -121,150 +122,80 @@ clusteringTabServer <- function(id, dataset) {
         left_join(df %>% select(Symbol, Gene_Symbol), by = "Symbol")
     }
 
-    # calculate the LFC value
-    calculate_variable_genes_by_LFC <- function() {
-      req(input$LFC_group_1, input$LFC_group_2)
+    # Calculate gene variability metric (Max-Min expression)
+    calculate_gene_variability_metric <- function() {
+      req(dataset$filtered_data())
 
-      gene_data <- dataset$filtered_data()
-      groups <- dataset$groups_data()
-      selected_groups <- dataset$selected_groups()
+      gene_data_full <- dataset$filtered_data() # This contains Symbol, Gene_Symbol, and sample columns
 
-      # remove this column for simplicity 
-      #gene_data <- gene_data %>% select(-Symbol)
-      colnames(gene_data)[1] <- "Symbol"
-      colnames(gene_data)[2] <- "Gene_Symbol"
-      colnames(groups)[1] <- "Condition"
-      colnames(groups)[2] <- "EXPERIMENTAL_GROUP"
-
-      calculateGroupMeans <- function(normalized_counts, sample_info, selected_groups) {
-        # Create an empty dataframe to store the results
-        averaged_counts <- data.frame(row.names = rownames(normalized_counts))
-
-        # Loop through each unique experimental group in the sample information
-        for (Group in selected_groups) {
-          # Find the samples belonging to this experimental group
-          samples_in_grp <- sample_info$Condition[sample_info$EXPERIMENTAL_GROUP == Group]
-
-          # Subset the normalized counts matrix to only these samples
-          counts_subset <- normalized_counts[, colnames(normalized_counts) %in% samples_in_grp, drop = FALSE]
-
-          # Calculate the mean across the columns (samples) for each gene
-          group_means <- rowMeans(counts_subset, na.rm = TRUE)
-
-          # Add the results to the dataframe, naming the column after the experimental group
-          averaged_counts[[Group]] <- group_means
-        }
-
-        return(averaged_counts)
+      # Ensure 'Symbol' and 'Gene_Symbol' are present
+      if (!("Symbol" %in% names(gene_data_full)) || !("Gene_Symbol" %in% names(gene_data_full))) {
+        log_error("Symbol or Gene_Symbol column missing in filtered_data")
+        return(NULL)
       }
-
-      # apply group means function
-      averaged_counts_result <- calculateGroupMeans(gene_data, groups, selected_groups)
-
-      averaged_counts_result$max_mean <- apply(averaged_counts_result[, -1], 1, max)
-
-      averaged_counts_result$max_mean_log2 <- log2(averaged_counts_result$max_mean + 1)
-
-      averaged_counts_result <- averaged_counts_result %>%
-        mutate(
-          max_group = pmax(!!sym(input$LFC_group_1), !!sym(input$LFC_group_2)),
-          min_group = pmin(!!sym(input$LFC_group_1), !!sym(input$LFC_group_2)),
-          LFC = log2(max_group + 1) - log2(min_group + 1)  
-        ) %>% 
-        select(-max_group, -min_group)
       
+      # Select only sample columns for Min/Max calculation
+      sample_columns <- setdiff(names(gene_data_full), c("Symbol", "Gene_Symbol"))
+      
+      if (length(sample_columns) == 0) {
+        log_error("No sample columns found in filtered_data for variability calculation.")
+        return(NULL)
+      }
+      
+      # Calculate Min and Max expression for each gene across selected samples
+      gene_expression_stats <- gene_data_full %>%
+        rowwise() %>%
+        mutate(
+          Min_Expression = min(c_across(all_of(sample_columns)), na.rm = TRUE),
+          Max_Expression = max(c_across(all_of(sample_columns)), na.rm = TRUE)
+        ) %>%
+        ungroup() %>%
+        select(Symbol, Gene_Symbol, Min_Expression, Max_Expression)
 
-      averaged_counts_result$Gene_Symbol <- gene_data$Gene_Symbol
+      # Calculate Variability and overall average expression (for x-axis)
+      variability_results <- gene_expression_stats %>%
+        mutate(
+          Variability = log2(Max_Expression + 1) - log2(Min_Expression + 1),
+          Avg_Expression = rowMeans(gene_data_full[, sample_columns, drop = FALSE], na.rm = TRUE) # Calculate mean of original values
+        ) %>%
+        mutate(
+          log2_Avg_Expression_plus_1 = log2(Avg_Expression + 1) # For the X-axis, consistent with previous "max_mean_log2"
+        )
 
-      averaged_counts_result$Symbol <- gene_data$Symbol
+      # Handle cases where Variability might be NaN or Inf (e.g., if Min_Expression is -1 due to no expression before +1)
+      variability_results <- variability_results %>%
+        mutate(
+          Variability = ifelse(is.finite(Variability), Variability, 0)
+        )
 
-      averaged_counts_result$LFC <- abs(averaged_counts_result$LFC)
-
-      averaged_counts_result
+      return(variability_results %>% select(Symbol, Gene_Symbol, log2_Avg_Expression_plus_1, Variability))
     }
 
-    # render variable genes plot
-    # output$variable_genes_plot <- renderPlotly({
-    #   on.exit(removeModal())
-    #
-    #   # render by ANOVA
-    #   if (input$y_axis_var == 1) {
-    #     req(samples_anova_results())
-    #     result_data <- samples_anova_results()
-    #     result_data$Max_log2 <- log2(result_data$Max + 1)
-    #
-    #     # update selected variable genes
-    #     variable_genes <- dplyr::filter(result_data, p_value <= input$y_cutoff, Max_log2 >= input$x_cutoff)
-    #     selected_variable_genes(variable_genes)
-    #
-    #     # highlight selected variable genes in the plot
-    #     result_data$highlight <- ifelse(result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff, "Selected", "Unselected")
-    #
-    #     p <- result_data %>%
-    #       ggplot(aes(x = Max_log2, y = p_value_log10, label = Gene_Symbol, color = highlight,
-    #                  text = paste("Genes:", Gene_Symbol, "<br>Max Group Expression:", Max, "<br>P Value:", p_value, "<br>P Adjusted Value:", p_value_adj, "<br>-log10(P-value):", p_value_log10))) +
-    #       geom_point(size = 3) +
-    #       scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-    #       labs(x = paste0("log2(Max) + 1"),
-    #            y = paste0("-log10(P-value)")) +
-    #       theme_minimal() +
-    #       theme(legend.position = "right") +
-    #       theme_linedraw(base_size = 16) +
-    #       theme(panel.grid.major = element_blank(),
-    #             panel.grid.minor = element_blank(),
-    #             legend.title = element_blank(),
-    #             legend.text = element_text(size = 10),
-    #             legend.position = "right")
-    #   } else {
-    #     # render by LFC
-    #     if (input$LFC_group_1 == input$LFC_group_2) {
-    #       return()
-    #     }
-    #
-    #     result_data <- calculate_variable_genes_by_LFC()
-    #     # update selected variable genes
-    #     variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
-    #     selected_variable_genes(variable_genes)
-    #
-    #     # highlight selected variable genes in the plot
-    #     result_data$highlight <- ifelse(result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff, "Selected", "Unselected")
-    #     p <- result_data %>%
-    #       ggplot(aes(x = max_mean_log2, y = LFC, color = highlight, text = paste("Genes:", Gene_Symbol, "<br>log2(Max-mean) + 1:", max_mean_log2, "<br>LFC:", LFC))) +
-    #       geom_point(size = 3) +
-    #       scale_color_manual(values = c("Selected" = "blue", "Unselected" = "grey")) +
-    #       labs(x = paste0("log2(Max-mean) + 1"),
-    #            y = paste0("LFC")) +
-    #       theme_minimal() +
-    #       theme(legend.position = "right") +
-    #       theme_linedraw(base_size = 16) +
-    #       theme(panel.grid.major = element_blank(),
-    #             panel.grid.minor = element_blank(),
-    #             legend.title = element_blank(),
-    #             legend.text = element_text(size = 10),
-    #             legend.position = "right")
-    #
-    #   }
-    #   ggplotly(p, tooltip = "text")
-    # })
+    # Observer to update cached variability data when mode changes or main data changes
+    observe({
+      req(input$y_axis_var == 2, dataset$filtered_data()) # Only for Expression Variability mode
+      log_info("Recalculating base data for variability plot due to data/mode change.")
+      variability_plot_data_cache(calculate_gene_variability_metric())
+    })
 
     output$variable_genes_plot <- renderPlotly({
-      # on.exit(removeModal())
-
-      # render by ANOVA
-      if (input$y_axis_var == 1) {
+      if (input$y_axis_var == 1) { # ANOVA
         req(samples_anova_results())
         result_data <- samples_anova_results()
         result_data$Max_log2 <- log2(result_data$Max + 1)
 
-        variable_genes <- dplyr::filter(result_data, p_value <= input$y_cutoff, Max_log2 >= input$x_cutoff)
-        selected_variable_genes(variable_genes)
+        current_x_cutoff_anova <- req(input$x_cutoff)
+        current_y_cutoff_anova <- req(input$y_cutoff)
+
+        variable_genes_anova <- dplyr::filter(result_data, p_value <= current_y_cutoff_anova, Max_log2 >= current_x_cutoff_anova)
+        selected_variable_genes(variable_genes_anova)
 
         result_data$highlight <- ifelse(
-          result_data$p_value <= input$y_cutoff & result_data$Max_log2 >= input$x_cutoff,
+          result_data$p_value <= current_y_cutoff_anova & result_data$Max_log2 >= current_x_cutoff_anova,
           "Selected", "Unselected"
         )
 
-        p <- plot_ly(
+        p_anova <- plot_ly(
           data = result_data,
           x = ~Max_log2,
           y = ~p_value_log10,
@@ -281,57 +212,87 @@ clusteringTabServer <- function(id, dataset) {
           ),
           hoverinfo = "text",
           marker = list(size = 10)
-        ) %>%
-          layout(
+        ) %>% layout(
             title = "Variable Genes Plot (ANOVA)",
-            xaxis = list(title = "log2(Max + 1)"),
+            xaxis = list(title = "log2(Max Expression + 1)"), # Clarified X-axis for ANOVA
             yaxis = list(title = "-log10(P-value)"),
-            legend = list(orientation = "v", x = 1, y = 1)
+            legend = list(orientation = "v", x = 1, y = 1, title = list(text = "Status"))
           )
+        return(p_anova)
 
-      } else {
-        # render by LFC
-        if (input$LFC_group_1 == input$LFC_group_2) {
-          return()
-        }
+      } else { # Render by new Variability Metric (initial render)
+        req(variability_plot_data_cache())
+        plot_data <- variability_plot_data_cache()
+        
+        current_x_cutoff_var <- req(input$x_cutoff)
+        current_y_cutoff_var <- req(input$y_cutoff)
 
-        result_data <- calculate_variable_genes_by_LFC()
-        variable_genes <- dplyr::filter(result_data, LFC >= input$y_cutoff, max_mean_log2 >= input$x_cutoff)
-        selected_variable_genes(variable_genes)
-
-        result_data$highlight <- ifelse(
-          result_data$LFC >= input$y_cutoff & result_data$max_mean_log2 >= input$x_cutoff,
-          "Selected", "Unselected"
+        # Determine highlight status and direct colors for initial plot
+        plot_data$highlight_color <- ifelse(
+          plot_data$Variability >= current_y_cutoff_var & plot_data$log2_Avg_Expression_plus_1 >= current_x_cutoff_var,
+          "blue", 
+          "grey"  
         )
+        
+        current_selected_var_genes <- dplyr::filter(plot_data, Variability >= current_y_cutoff_var, log2_Avg_Expression_plus_1 >= current_x_cutoff_var)
+        selected_variable_genes(current_selected_var_genes)
 
-        p <- plot_ly(
-          data = result_data,
-          x = ~max_mean_log2,
-          y = ~LFC,
-          type = 'scatter',
+        p_var <- plot_ly(
+          data = plot_data, 
+          x = ~log2_Avg_Expression_plus_1, 
+          y = ~Variability, 
+          type = 'scatter', 
           mode = 'markers',
-          color = ~highlight,
-          colors = c("Selected" = "blue", "Unselected" = "grey"),
+          marker = list(size = 10, color = ~highlight_color), # Use direct colors
           text = ~paste(
-            "Genes:", Gene_Symbol,
-            "<br>log2(Max-mean + 1):", max_mean_log2,
-            "<br>LFC:", LFC
+            "Gene:", Gene_Symbol,
+            "<br>log2(Avg Expression + 1):", round(log2_Avg_Expression_plus_1, 2),
+            "<br>Variability (log2(Max+1)-log2(Min+1)):", round(Variability, 2)
           ),
-          hoverinfo = "text",
-          marker = list(size = 10)
-        ) %>%
-          layout(
-            title = "Variable Genes Plot (LFC)",
-            xaxis = list(title = "log2(Max+1)"), 
-            yaxis = list(title = "LFC"),
-            legend = list(orientation = "v", x = 1, y = 1)
+          hoverinfo = "text"
+        ) %>% layout(
+            title = "Variable Genes Plot (Expression Variability)",
+            xaxis = list(title = "log2(Average Expression + 1)"), 
+            yaxis = list(title = "Variability [log2(Max+1) - log2(Min+1)]"),
+            legend = list(showlegend = FALSE) # No legend needed with direct colors
           )
+        return(p_var)
       }
-
-      p
     })
 
-    output$number_of_genes <- renderText(paste0("Number of Selected Genes: ", nrow(selected_variable_genes())))
+    # Observer for cutoff changes to update variability plot colors via proxy
+    observe({      
+      # Only run for Expression Variability mode and if data cache and inputs are ready
+      req(input$y_axis_var == 2, 
+          !is.null(variability_plot_data_cache()), 
+          !is.null(input$x_cutoff), 
+          !is.null(input$y_cutoff))
+
+      cached_data <- variability_plot_data_cache()
+      current_x_cutoff <- input$x_cutoff
+      current_y_cutoff <- input$y_cutoff
+
+      # Recalculate colors based on new cutoffs
+      new_colors <- ifelse(
+        cached_data$Variability >= current_y_cutoff & cached_data$log2_Avg_Expression_plus_1 >= current_x_cutoff,
+        "blue",
+        "grey"
+      )
+      
+      # Update selected_variable_genes reactiveVal
+      updated_selected_genes <- dplyr::filter(cached_data, Variability >= current_y_cutoff, log2_Avg_Expression_plus_1 >= current_x_cutoff)
+      selected_variable_genes(updated_selected_genes)
+      
+      log_info(paste("Proxy update: x_cutoff=", current_x_cutoff, ", y_cutoff=", current_y_cutoff, ", num_selected=", nrow(updated_selected_genes)))
+
+      plotlyProxy("variable_genes_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(marker = list(color = list(new_colors))))
+    })
+
+    output$number_of_genes <- renderText({
+      num_genes <- nrow(selected_variable_genes())
+      paste0("Number of Selected Genes: ", ifelse(is.null(num_genes), 0, num_genes))
+    })
 
     # render heatmap using selected variable genes
     create_cluster_plot <- function(data, cluster_options, max_clusters) {
@@ -540,36 +501,33 @@ clusteringTabServer <- function(id, dataset) {
 
     # Reading and storing expression data
     observeEvent(input$y_axis_var, {
-      groups <- dataset$selected_groups()
-      options <- c()
-      for (group in groups) {
-        options <- c(options, group)
-      }
+      # Groups are not needed for the new variability metric
+      # groups <- dataset$selected_groups() 
+      # options <- c()
+      # for (group in groups) {
+      #   options <- c(options, group)
+      # }
       
       output$y_axis_operations <- renderUI({
-        if(input$y_axis_var == 2) {
-          fluidRow(
-            column(6,
-                   selectInput(session$ns("LFC_group_1"), "Group 1", options, selected = options[1])
-            ),
-            column(6,
-                   selectInput(session$ns("LFC_group_2"), "Group 2", options, selected = options[2])
-            )
-          )
+        if(input$y_axis_var == 2) { # This is now the "Expression Variability" option
+          # No Group 1 or Group 2 selection needed
+          NULL 
         } else {
-          # Return empty UI for ANOVA since we don't need additional controls
+          # ANOVA still doesn't need group selection here for its specific controls
           NULL
         }
       })
       
       output$y_cutoff <- renderUI({
-        if(input$y_axis_var == 1) {
+        if(input$y_axis_var == 1) { # ANOVA
           tagList(
-            numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05, min = 0, max = 1, step = 0.1),
-            actionButton(NS(id, "run_analysis"), "Run Analysis")
+            numericInput(NS(id, "y_cutoff"), "P-value Cutoff", value = 0.05, min = 0, max = 1, step = 0.05),
+            actionButton(NS(id, "run_analysis"), "Run Analysis") # Run analysis button only for ANOVA for now
           )
-        } else {
-          numericInput(NS(id, "y_cutoff"), "Fold Change Cutoff", value = 1, step = 0.1,min = 0)
+        } else { # Expression Variability
+          # For variability, analysis/calculation happens directly in plot rendering based on cutoffs
+          # No separate "Run Analysis" button here, plot updates reactively to cutoffs.
+          numericInput(NS(id, "y_cutoff"), "Variability Cutoff", value = 1, step = 0.1,min = 0)
         }
       })
     })
@@ -593,18 +551,6 @@ clusteringTabServer <- function(id, dataset) {
             )
           )
         })
-      }
-    })
-
-    observeEvent(input$LFC_group_1, {
-      if (input$LFC_group_1 == input$LFC_group_2) {
-        showNotification("Please select two different gourps for LFC calculation.", type = "error")
-      }
-    })
-
-    observeEvent(input$LFC_group_2, {
-      if (input$LFC_group_1 == input$LFC_group_2) {
-        showNotification("Please select two different gourps for LFC calculation.", type = "error")
       }
     })
 
@@ -663,10 +609,10 @@ clusteringTabUI <- function(id) {
     fluidRow(
       column(4,
              div(class = "bottom-centered",
-                 selectInput(NS(id, "y_axis_var"), "Y Axis Variability",
-                             c("ANOVA" = 1, "LFC" = 2), selected = 1),
+                 selectInput(NS(id, "y_axis_var"), "Variable Gene Selection Metric",
+                             c("ANOVA (p-value)" = 1, "LFC" = 2), selected = 1),
                  uiOutput(NS(id, "y_axis_operations")),
-                 numericInput(NS(id, "x_cutoff"), "log2(Max+1) Cutoff", value = 1, min = 0, step = 0.1),
+                 numericInput(NS(id, "x_cutoff"), "log2(Avg Expression+1) Cutoff", value = 1, min = 0, step = 0.1),
                  uiOutput(NS(id, "y_cutoff"))
              )
       ),
