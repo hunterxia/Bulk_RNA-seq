@@ -27,6 +27,7 @@ PairwiseComparisonTabUI <- function(id) {
           ns("fc_cutoff"),
           "Fold Change Cutoff",
           value = 2,
+          min = 1,
           step = 0.5
         ),
         numericInput(
