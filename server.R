@@ -12,7 +12,7 @@ source("./R/qc.R")
 source("./R/pca_correlation.R")
 source("./R/pairwise _comparison.R")
 source("./R/clustering.R")
-source("./R/inidividual_gene.R")
+source("./R/individual_gene.R")
 source("logger.R")
 
 init_logger()
