@@ -11,7 +11,7 @@ This repository contains an interactive [Shiny](https://shiny.posit.co/) applica
 - **Clustering** – Identify variable genes and display interactive heatmaps with hierarchical clustering or k‑means clusters.
 - **Individual Gene** – Plot expression of specific genes across samples or groups.
 
-Sample data (`202405224_Data.csv`, `20240524_groups.csv`, etc.) are provided for demonstration purposes.
+Example expression and group tables are available under `example_data/` for demonstration.
 
 ## Getting Started
 
@@ -40,9 +40,7 @@ Log files are written to the `logs/` directory each time the app starts.
 - `app.R` – entry point that launches the Shiny app
 - `ui.R` / `server.R` – top‑level Shiny definitions
 - `R/` – module code for the individual analysis tabs
-- `logs/` – session logs created by `logger.R`
-- `rsconnect/` – deployment metadata for shinyapps.io
-- `*.csv` – example expression and group data
+- `example_data/` – sample expression and group files
 
 ## License
 
