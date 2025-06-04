@@ -13,7 +13,7 @@ library(shiny)
 source("./R/main.R")
 source("./R/qc.R")
 source("./R/pca_correlation.R")
-source("./R/pairwise _comparison.R")
+source("./R/pairwise_comparison.R")
 source("./R/clustering.R")
 source("./R/individual_gene.R")
 ui <- fluidPage(
